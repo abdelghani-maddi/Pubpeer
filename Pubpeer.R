@@ -16,7 +16,7 @@ library(lubridate)
 library(timechange)
 
 ### Espace de travail
-setwd('/Users/maddi/Documents/Pubpeer/R')
+setwd('/Users/maddi/Documents/Pubpeer project/Pubpeer explo')
 
 con<-dbConnect(RPostgres::Postgres())
 
@@ -29,15 +29,11 @@ con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port,
 # Test connexion
 dbListTables(con) 
 
-reqsql='SELECT * from "DATA".ROW_DATA;'
-row_data_sql = dbGetQuery(con,reqsql)
-
-
 ####
 
-### Recuperation de des donnees
-bdd_pub = read.csv2('/Users/maddi/Documents/Pubpeer/Excel CSV/PubPeer_Base publications.csv', sep=";")
-bdd_com = read.csv2('/Users/maddi/Documents/Pubpeer/Excel CSV/PubPeer_Base commentaires.csv', sep=";")
+### Recuperation des donnees (envoyees par Emmanuel)
+bdd_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
+bdd_com = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base commentaires.csv', sep=";")
 
 
 ### Quelques statistiques descriptives
@@ -52,7 +48,7 @@ write.csv(bdd_com$markdown, file ="comm pr vosv")
 ############################
 ############################
 
-row_data = data.frame(bdd_pub$id,((bdd_pub$Journal_Categories_WOS)))
+row_data = data.frame(bdd_pub$publication,((bdd_pub$Journal_Categories_WOS)))
 names(row_data) = c("id","wos_cat")
 
 clean_data =  data.frame(row_data$id, gsub("  ", " ",(str_replace_all((str_split(row_data$wos_cat, '",' , simplify = TRUE)), "[[:punct:]]", ""))))
@@ -64,33 +60,33 @@ describe(data_JCW)
 write.csv(data_JCW, file ="data_JCW")
 
 ## Mettre la table sur PostgresSQL
-names(data_JCW) = c("ID","JCW")
-dbWriteTable(con, "DATA_JCW", data_JCW)
+names(data_JCW) = c("id","jcw")
+dbWriteTable(con, "data_jcw", data_JCW)
 
 ############################
 ############################
 
-
+describe(bdd_pub)
 ############################
 ############################
 ### Dimension disciplinaire : Journal_Domaines
 ############################
 ############################
 
-row_data = data.frame(bdd_pub$id,((bdd_pub$Journal_Domaines)))
-names(row_data) = c("id","JD")
+row_data = data.frame(bdd_pub$publication,((bdd_pub$Journal_Domaines_WOS)))
+names(row_data) = c("id","JDW")
 
-clean_data =  data.frame(row_data$id, gsub("  ", " ",(str_replace_all((str_split(row_data$JD, "'," , simplify = TRUE)), "[[:punct:]]", ""))))
-names(clean_data) = c("id","JD")
+clean_data =  data.frame(row_data$id, gsub("  ", " ",(str_replace_all((str_split(row_data$JDW, '",' , simplify = TRUE)), "[[:punct:]]", ""))))
+names(clean_data) = c("id","JDW")
 
-data_JD <- subset(clean_data, JD != "")
+data_JD <- subset(clean_data, JDW != "")
 
 describe(data_JD)
 describe(data_JD$JD)
 
 ## Mettre la table sur PostgresSQL
-names(data_JD) = c("ID","JD")
-dbWriteTable(con, "DATA_JD", data_JD)
+names(data_JD) = c("id","jdw")
+dbWriteTable(con, "data_jdw", data_JD)
 
 
 ############################
@@ -102,7 +98,7 @@ dbWriteTable(con, "DATA_JD", data_JD)
 ############################
 ############################
 
-row_data = data.frame(bdd_pub$id,((bdd_pub$Institutions)))
+row_data = data.frame(bdd_pub$publication,((bdd_pub$Institutions)))
 names(row_data) = c("id","institution")
 
 clean_data =  data.frame(row_data$id, gsub("  ", " ",(str_replace_all((str_split(row_data$institution, "'," , simplify = TRUE)), "[[:punct:]]", ""))))
@@ -114,12 +110,11 @@ describe(data_instit)
 
 
 ## Mettre la table sur PostgresSQL
-names(data_instit) = c("ID","INSTIT")
-dbWriteTable(con, "DATA_INSTIT", data_instit)
+names(data_instit) = c("id","instit")
+dbWriteTable(con, "data_instit", data_instit)
 
 ############################
 ############################
-
 
 ############################
 ############################
@@ -127,7 +122,7 @@ dbWriteTable(con, "DATA_INSTIT", data_instit)
 ############################
 ############################
 
-row_data = data.frame(bdd_pub$id,((bdd_pub$Pays_institution)))
+row_data = data.frame(bdd_pub$publication,((bdd_pub$Pays_institution)))
 names(row_data) = c("id","pays")
 
 clean_data =  data.frame(row_data$id, gsub("  ", " ",(str_replace_all((str_split(row_data$pays, "'," , simplify = TRUE)), "[[:punct:]]", ""))))
@@ -138,8 +133,8 @@ data_pays <- subset(clean_data, pays != "")
 describe(data_pays)
 
 ## Mettre la table sur PostgresSQL
-names(data_pays) = c("ID","PAYS")
-dbWriteTable(con, "DATA_PAYS", data_pays)
+names(data_pays) = c("id","pays")
+dbWriteTable(con, "data_pays", data_pays)
 
 
 ############################
@@ -180,7 +175,7 @@ dbWriteTable(con, "DATA_IDENTIFIANTS", data_ID)
 ############################
 ############################
 
-row_data = data.frame(bdd_pub$id, bdd_pub$Cité_année)
+row_data = data.frame(bdd_pub$publication, bdd_pub$Cité_année)
 names(row_data) = c("id","cit")
 
 clean_data =  data.frame(row_data$id, gsub("  ", " ",(str_replace_all((str_split(row_data$cit, "year" , simplify = TRUE)), "[[:punct:]]", ""))))
@@ -191,15 +186,15 @@ data_cit_fin = separate(data_cit, cit, sep = "citedbycount", into = c("ANNEE", "
 describe(data_cit_fin)
 
 ## Mettre la table sur PostgresSQL
-names(data_cit_fin) = c("ID","ANNEE_CITATION", "NB_CITATIONS")
-dbWriteTable(con, "DATA_CITATIONS", data_cit_fin)
+names(data_cit_fin) = c("id","annee_citation", "nb_citations")
+dbWriteTable(con, "data_citations", data_cit_fin)
 
 
 ############################
 ############################                
 ## Table des commentaires
 ############################
-dbWriteTable(con, "DATA_COMMENTAIRES", bdd_com)
+dbWriteTable(con, "data_commentaires", bdd_com)
 dbWriteTable(con, "data_pub", bdd_pub)
 
 ## Transformer les donnees de dates de commentaires
