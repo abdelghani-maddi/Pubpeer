@@ -1,3 +1,5 @@
+###allowInterrupts()
+
 rm(list = ls()) #supprimer tous les objets 
 ## Graphique alluvial publications commentees dans Pubpeer : pays
 
