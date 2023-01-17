@@ -1,3 +1,7 @@
+# Objet de ce répertoire
+Partager les travaux sur les données Pubpeer : interrogation des données, analyse des sentiments et visualisations.
+
+
 # Pubpeer
 Dans ce répertoire, vous trouverez trois types de fichiers :
   
