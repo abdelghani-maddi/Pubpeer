@@ -66,7 +66,6 @@ dbWriteTable(con, "data_jcw", data_JCW)
 ############################
 ############################
 
-describe(bdd_pub)
 ############################
 ############################
 ### Dimension disciplinaire : Journal_Domaines
@@ -87,7 +86,6 @@ describe(data_JD$JD)
 ## Mettre la table sur PostgresSQL
 names(data_JD) = c("id","jdw")
 dbWriteTable(con, "data_jdw", data_JD)
-
 
 ############################
 ############################
@@ -146,11 +144,11 @@ dbWriteTable(con, "data_pays", data_pays)
 ############################
 ############################
 
-data_annee = data.frame(bdd_pub$id, bdd_pub$Date, bdd_pub$Année, bdd_pub$Type, bdd_pub$Nombre.de.commentaires, bdd_pub$Retracted)
-names(data_annee) = c("ID", "DATE", "ANNEE", "DOCTYPE","NB_COMM", "RETRACTED")     
+data_annee = data.frame(bdd_pub$publication, bdd_pub$Date, bdd_pub$Année, bdd_pub$Type, bdd_pub$Nombre.de.commentaires, bdd_pub$Retracted)
+names(data_annee) = c("id", "date", "annee", "doctype","nb_comm", "retracred")     
 
 ## Mettre la table sur PostgresSQL
-dbWriteTable(con, "DATA_ANNEES", data_annee)
+dbWriteTable(con, "data_annee", data_annee)
 
 
 ############################
@@ -198,8 +196,8 @@ dbWriteTable(con, "data_commentaires", bdd_com)
 dbWriteTable(con, "data_pub", bdd_pub)
 
 ## Transformer les donnees de dates de commentaires
-date_comm1 = data.frame(bdd_com$publication,bdd_com, bdd_com$inner_id, as.Date.character(dmy_hm(bdd_com$DateCreated)), as.Date.character(dmy_hm(bdd_com$accepted_at)), as.Date.character(dmy_hm(bdd_com$updated_at)))
-names(date_comm1) = c('id_pub', 'id_comm', 'date_creation', 'date_acceptation', 'date_mise_a_jour')
+date_comm1 = data.frame(bdd_com$publication, bdd_com$inner_id, as.Date.character(dmy_hm(bdd_com$DateCreated)), as.Date.character(dmy_hm(bdd_com$accepted_at)), as.Date.character(dmy_hm(bdd_com$updated_at)))
+names(date_comm1) = c(    'id_pub',            'id_comm',             'date_creation',                          'date_acceptation',                             'date_mise_a_jour')
 
 date_comm = data.frame(date_comm1, year(date_comm1$date_creation), year(date_comm1$date_acceptation), year(date_comm1$date_mise_a_jour))
 names(date_comm)[6:8] = c("annee_comm", "annee_accept_comm", "annee_maj_com")
@@ -207,7 +205,6 @@ names(date_comm)[6:8] = c("annee_comm", "annee_accept_comm", "annee_maj_com")
 dbWriteTable(con, "data_commentaires_annees", date_comm)
 
 ############################
-
 
 
 

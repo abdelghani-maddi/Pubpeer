@@ -2,14 +2,13 @@
 library(sentiment.ai)
 library(SentimentAnalysis)
 library(sentimentr)
-
+ 
 ### Espace de travail
-setwd('/Users/maddi/Documents/Pubpeer/R')
+setwd('/Users/maddi/Documents/Pubpeer project/Pubpeer explo')
 
 library(alluvial)
 library(DBI)
 library(ggplot2)
-
 library(sentimentr)
 library(tidyverse)
 
@@ -30,7 +29,6 @@ dbListTables(con)
 
 reqsql= paste('select * from commentaires_par_discipline')
 text = dbGetQuery(con,reqsql)
-
 
 debates <- data.frame(subset((str_replace_all((str_split(text$markdown, "'," , simplify = TRUE)), "[[:punct:]]", " ")), text != ""))
 names(debates)=c("commentaires")
