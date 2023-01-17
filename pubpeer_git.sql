@@ -1,18 +1,17 @@
--- test
 /* Vérification nombre ID dans les bases */
    
 -- ID des publications dans la base publications
-select count (distinct id) as id,
+select count (distinct publication) as id,
        count (distinct original_id) as original_id
 
-       from public.data_pub ;
+       from public.data_pub;
 
 -- ID des publications dans la base commentaires
 select count (distinct id) as id,
        count (distinct publication) as id_pub
 	   
-	   from public."DATA_COMMENTAIRES"
-
+	   from public.data_commentaires
+;
 -- ID dans la table data.commentaire.annee
 
 select count (distinct id_pub) from public.data_commentaires_annees ;
@@ -42,29 +41,29 @@ DELIMITER ','
 CSV HEADER;*/
 
 /* Calcul du fractionnelent géographique */
-drop table DATA_PAYS_FRAC_GEO;
-create table DATA_PAYS_FRAC_GEO as
+drop table data_pays_frac_geo;
+create table data_pays_frac_geo as
 
-SELECT X."ID",
-       X."PAYS",
-	   (X."nb_adress_pays"/Y."nb_tot_adress"::float) AS FRAC_GEO
+SELECT X.id,
+       X.pays,
+	   (X.nb_adress_pays/Y.nb_tot_adress::float) AS frac_geo
 
 FROM
 
-(select DISTINCT "ID",
-		"PAYS", 
-		COUNT (*) AS NB_ADRESS_PAYS
-		FROM (SELECT "ID", TRIM("PAYS") AS "PAYS" 
-			  FROM public."DATA_PAYS") AA
-                  GROUP BY "ID",
-		                   "PAYS") X,
+(select DISTINCT id,
+		pays, 
+		COUNT (*) AS nb_adress_pays
+		FROM (SELECT id, TRIM(pays) AS pays 
+			  FROM public.data_pays) AA
+                  GROUP BY id,
+		                   pays) X,
 
-(select "ID",
-		COUNT("PAYS") AS NB_TOT_ADRESS 
-		    FROM public."DATA_PAYS"
-        		GROUP BY "ID") Y
+(select id,
+		COUNT(pays) AS nb_tot_adress 
+		    FROM public.data_pays
+        		GROUP BY id) Y
 
-WHERE X."ID" = Y."ID"
+WHERE X.id = Y.id
 
 ;
 /* test fractionnement */
