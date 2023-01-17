@@ -1,5 +1,5 @@
 ## test de modification
-# Load the package
+# Load the package 
 library(sentiment.ai)
 library(SentimentAnalysis)
 library(sentimentr)
