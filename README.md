@@ -2,7 +2,7 @@
 Partager les travaux sur les données Pubpeer : interrogation des données, analyse des sentiments et visualisations.
 
 
-# Pubpeer
+# Ce qu'on y trouve
 Dans ce répertoire, vous trouverez trois types de fichiers :
   
   1- Des fichiers SQL pour interroger la base de données relationnelle;
