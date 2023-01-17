@@ -1,3 +1,4 @@
+# ajout d'une ligne pour tester git hub
 # Load the package
 library(sentiment.ai)
 library(SentimentAnalysis)
