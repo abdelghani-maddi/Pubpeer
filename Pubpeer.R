@@ -71,7 +71,7 @@ dbWriteTable(con, "data_jcw", data_JCW)
 ### Dimension disciplinaire : Journal_Domaines
 ############################
 ############################
-
+ 
 row_data = data.frame(bdd_pub$publication,((bdd_pub$Journal_Domaines_WOS)))
 names(row_data) = c("id","JDW")
 

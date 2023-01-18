@@ -2,7 +2,7 @@
 rm(list = ls()) #supprimer tous les objets 
 ## Graphique alluvial publications commentees dans Pubpeer : pays
 
-
+ 
 ### Espace de travail
 setwd('/Users/maddi/Documents/Pubpeer project/Pubpeer explo')
 

@@ -2,7 +2,7 @@
 library(sentiment.ai)
 library(SentimentAnalysis)
 library(sentimentr)
- 
+  
 ### Espace de travail
 setwd('/Users/maddi/Documents/Pubpeer project/Pubpeer explo')
 

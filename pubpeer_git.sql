@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /*******************************************/
 /*******************************************/
 /*           ##### Recette ####            */
@@ -6,8 +5,6 @@
 /*******************************************/
 
 
-=======
->>>>>>> f42840f5fdc23d2849a0192a21da17bc671bb8c4
 /* Vérification nombre ID dans les bases */
 
 -- ID des publications dans la base publications
@@ -309,7 +306,7 @@ from
 /*# Extractions pour l'analyse textuelle #*/
 /*******************************************/
 /*******************************************/
-
+ 
 /* Extraction données commentaires par discipline */ 		
 drop table commentaires_par_discipline;
 create table commentaires_par_discipline as
