@@ -196,7 +196,7 @@ novels_bin <- novels_anno %>%
                                       TRUE ~ sentiment),
                 sentiment= case_when(sentiment == "0" ~ 0,
                                      sentiment == "positive" ~ 1,
-                                     TRUE ~ -1),
+                                     TRUE ~ -1), 
                 id = 1:n(),
                 index = as.numeric(cut2(id, m=100))) %>%
   dplyr::group_by(novel, index) %>%
