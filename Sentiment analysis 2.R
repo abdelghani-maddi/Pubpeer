@@ -186,7 +186,7 @@ novels %>%
   scale_y_continuous(breaks = seq(0,2,1),
                      labels = c("more negative", "neutral", "more positive")) +
   theme(legend.position = "none")
-
+ 
 ###
 novels_bin <- novels_anno %>%
   dplyr::group_by(novel) %>%
