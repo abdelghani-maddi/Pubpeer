@@ -3,7 +3,10 @@
 /*           ##### Recette ####            */
 /*******************************************/
 /*******************************************/
-
+-- ID des publications dans la base commentaires
+select *	   
+	   from public.data_commentaires
+	     where publication ='1247'
 
 /* Vérification nombre ID dans les bases */
 
@@ -311,7 +314,7 @@ from
 drop table commentaires_par_discipline;
 create table commentaires_par_discipline as
 
-select distinct markdown ,
+select distinct inner_id, publication, markdown ,
        'Arts Humanities' as discipline
          from public.data_commentaires x,
 		      public.data_jdw y
@@ -319,7 +322,7 @@ select distinct markdown ,
 				     and jdw = 'Arts Humanities'
 union			  
 
-select distinct markdown ,
+select distinct inner_id, publication, markdown ,
        'Life Sciences Biomedicine' as discipline
          from public.data_commentaires x,
 		      public.data_jdw y
@@ -328,7 +331,7 @@ select distinct markdown ,
 union	
 
 
-select distinct markdown ,
+select distinct inner_id, publication, markdown ,
        'Multidisciplinary' as discipline
          from public.data_commentaires x,
 		      public.data_jdw y
@@ -337,7 +340,7 @@ select distinct markdown ,
 union		
 
 
-select distinct markdown ,
+select distinct inner_id, publication, markdown ,
        'Physical Sciences' as discipline
          from public.data_commentaires x,
 		      public.data_jdw y
@@ -345,7 +348,7 @@ select distinct markdown ,
 				     and jdw = 'Physical Sciences'
 union
 
-select distinct markdown ,
+select distinct inner_id, publication, markdown ,
        'Social Sciences' as discipline
          from public.data_commentaires x,
 		      public.data_jdw y
@@ -353,7 +356,7 @@ select distinct markdown ,
 				     and jdw = 'Social Sciences'
 union	
 
-select distinct markdown ,
+select distinct inner_id, publication, markdown ,
        'Technology' as discipline
          from public.data_commentaires x,
 		      public.data_jdw y
@@ -368,5 +371,18 @@ select * from public."DATA_CITATIONS"
 	         and id='106986'
 			    ORDER BY "ANNEE_CITATION"
 ;
+
+/* Préparation des données sur les liens qui figurent dans les commentaires pour les représenter sur VosViewer */
+drop table liens_com_disc;
+create table liens_com_disc as
+select x.*,
+       jdw
+        from public.liens_com_nettoyes x,
+		     public.data_jdw y
+			 
+			   where id = publication
+;
+
+
 
 		

@@ -11,6 +11,10 @@ library(sentimentr)
 library(zoo)
 library(flextable)
 library(DBI)
+
+library(Matrix)
+library(data.table)
+
 # activate klippy for copy-to-clipboard button
 klippy::klippy()
 
@@ -31,3 +35,41 @@ dbListTables(con)
 
 reqsql= paste('select * from commentaires_par_discipline')
 text = dbGetQuery(con,reqsql)
+
+### Récupération des commentaires avec liens hypertextes
+
+url_pattern <- "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
+
+s <- subset(text, markdown %like% c("%https%","%http%","%www%","%WWW%"))
+                                   
+s2 <- str_extract_all(s$markdown, url_pattern)
+names(s2) = s$publication
+
+# Creating the large list
+list_data <- s2
+
+# Mapping -> converting the list to 
+# dataframe
+list_data <- Map(as.data.frame, list_data)
+s3 <- as.data.frame(enframe(list_data))
+names(s3) = c("publication", "liens")
+class(s3)
+
+s4 = split(s3$liens, s3$publication)
+s5 = data.frame(unlist(s4))
+s6 = data.frame(str_split(row.names(s5), '.d', simplify = T), s5)
+names(s6) <- c("publication", "ne_pas_prendre","liens")
+
+dbWriteTable(con, "liens_com", s6)
+
+
+##### Extraire nom du site
+s7 <- data.frame(s6$publication, str_split(s6$liens, "/", simplify = T))
+s8 <- data.frame(as.numeric(s7$s6.publication), s7$X3)
+names(s8) <- c("publication","site")
+
+s9 <- data.frame(s8$publication,gsub("  ", " ",(str_replace_all(s8$site, "[[:punct:]]", ""))))
+names(s9) <- c("publication","site")
+
+dbWriteTable(con, "liens_com_nettoyes", s9)
+
