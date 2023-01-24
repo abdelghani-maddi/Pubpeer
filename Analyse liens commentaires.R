@@ -65,11 +65,34 @@ dbWriteTable(con, "liens_com", s6)
 
 ##### Extraire nom du site
 s7 <- data.frame(s6$publication, str_split(s6$liens, "/", simplify = T))
-s8 <- data.frame(as.numeric(s7$s6.publication), s7$X3)
-names(s8) <- c("publication","site")
 
-s9 <- data.frame(s8$publication,gsub("  ", " ",(str_replace_all(s8$site, "[[:punct:]]", ""))))
-names(s9) <- c("publication","site")
+s8 <- data.frame(as.numeric(s7$s6.publication), s7$X3) %>%
+names() = c("publication","site")
 
-dbWriteTable(con, "liens_com_nettoyes", s9)
+`%not_in%` <- purrr::negate(`%in%`)
+exclure <- c(")", 
+             "![](http:", 
+             "![file](https:", 
+             ")![file](![https:", 
+             ")![file](https:", 
+             ").",
+             "),",
+             "	)![](http:",
+             "2F",
+             ")![](http:",
+             ")2F,",
+             ")https:",
+             ")](http:"
+             )
+exclure
+
+df <- s8 %>%   
+    subset(., .$site %not_in% exclure) %>%
+    subset(., row.names(.) != 19160)
+
+harmoniser <- c("%pubpeer%", "%twit%", "%yout%")
+
+a <- subset(df, df$site %like% harmoniser)
+
+dbWriteTable(con, "liens_com_nettoyes", df)
 
