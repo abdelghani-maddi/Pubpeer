@@ -5,15 +5,15 @@
 /*******************************************/
 -- ID des publications dans la base commentaires
 select *	   
-	   from public.data_commentaires
-	     where publication ='1247'
+	   from public.data_commentaires∑
+	     where publication ='106541'
 
 /* Vérification nombre ID dans les bases */
 
 -- ID des publications dans la base publications
 select count (distinct publication) as id,
        count (distinct original_id) as original_id
-
+⁄
        from public.data_pub;
 
 -- ID des publications dans la base commentaires
@@ -381,6 +381,22 @@ select x.*,
 		     public.data_jdw y
 			 
 			   where id = publication
+			   order by x.site
+;
+
+select distinct x.site_1,
+       y.site_2,
+	   count (distinct x.publication)
+	from  (select publication, site as site_1 from liens_com_nettoyes) x,
+		  (select publication, site as site_2 from liens_com_nettoyes) y
+		where x.publication = y.publication
+		   group by x.site_1,
+       				y.site_2
+					
+					order by 3 desc
+
+
+    
 ;
 
 
