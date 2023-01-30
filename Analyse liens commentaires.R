@@ -1,7 +1,7 @@
-## Formatage espace de travail
+## Formatage espace de travail ----
 rm(list = ls()) #supprimer tous les objets 
 
-# activate packages
+# chargement des packages ----
 library(stringr)
 library(tibble)
 library(tidytext)
@@ -18,8 +18,13 @@ library(questionr)
 library(RPostgres)
 library(lubridate)
 library(timechange)
+library(urltools)
+library(stringr)
+library(rebus)
+library(Matrix)
+library(plyr)
 
-### CONNEXION
+# Connexion ----
 
 con<-dbConnect(RPostgres::Postgres())
 
@@ -32,130 +37,100 @@ con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port,
 # Test connexion
 dbListTables(con) 
 
-### RECUPERATION DES DONNEES
+### Récupération des données ----
 
-reqsql= paste('select * from commentaires_par_discipline')
+reqsql= paste('select inner_id, publication, html as comm from data_commentaires')
 data_comm = dbGetQuery(con,reqsql)
 
-### Récupération des commentaires avec liens hypertextes
-url_pattern <- "http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+"
-
-#################################################################################
+### Récupération des commentaires avec liens hypertextes ----
 # Creer la liste des liens qui se trouvent dans les commentaires gardant 
 # le lien avec les publications à partir desquelles sont extraits
-#################################################################################
-# transformer le type de données pour plus de facilité/performance dans le traitement
-liens_all <- as_tibble(data_comm) %>% 
-  # Se limiter aux commentaires avec au moins un lien hypertexte  
-     subset(., markdown %like% c("%https%","%http%","%www%","%WWW%")) %>% 
-  # Recupérer uniquement les commentaires (l'intérêt de garder le subset est de pouvoir selectionner par la suite les disciplines aussi)
-     .$markdown %>% 
-  # Extraire les liens
-     str_extract_all(., url_pattern) %>% 
-  # Transformer les données
-     Map(as.data.frame, .) 
 
-#################################################################################
-  # Attribuer aux liens, les identifiants des publications d'où ils sont issus.
-pr_id_pub <- subset(data_comm, markdown %like% c("%https%","%http%","%www%","%WWW%")) # subset
-names(liens_all) <- pr_id_pub$publication # attribution
-rm(pr_id_pub) # suppression du subset
-rm(data_comm) # suppression de l'import initial (pour libérer de la mémoire)
+#### Etape 0 : Transformer le type de données pour plus de facilité/performance dans le traitement ----
+URL_var <- as_tibble(data_comm) %>% # Etape 0
+#### Etape 1 : Se limiter aux commentaires avec au moins un lien hypertexte  ----
+  subset(., comm %like% c("%https%","%http%","%www%","%WWW%")) %>% # Etape 1
+#### Etape 2 : Recupérer uniquement les commentaires (l'intérêt de garder le subset est de pouvoir selectionner par la suite les disciplines aussi) ----
+  .$comm # Etape 2
 
-#################################################################################
-#################################################################################
-# Transformer la liste en dataframe
-df <- as.data.frame(enframe(liens_all))
+#### Etape 3 : nommer le vecteur avec l'identifiant des publications ----
+  names(URL_var) <- subset(data_comm$publication, data_comm$comm %like% c("%https%","%http%","%www%","%WWW%")) # Etape 3
+
+#### Etape 4 : Créer un pattern pour l'extraction des URL ----
+pat<- "//" %R% capture(one_or_more(char_class(WRD,DOT))) 
+
+#### Etape 5 : Utiliser "rebus" pour extraire l'URL principal ----
+URL_extract<-str_extract_all(URL_var, "(?<=//)[^\\s/:]+") #URL_extract<-str_match_all(URL_var, pattern = pat) 
+
+# Attribuer aux liens, les identifiants des publications d'où ils sont issus ----
+names(URL_extract) <- names(URL_var)
+
+# Transformer en liste de dataframe
+list_data <- Map(as.data.frame, URL_extract) 
+
+t <- ldply(list_data[1:2])
+t <- ldply(list_data[1:2])
+tt <- unite(t, t[,2], t[,2],t[,3], sep = "")
+
+df <- as.data.frame(enframe(list_data)) 
+df %>% as.double(df[["a"]])
+names(df) = c("a", "value")
+
+# Extraire les rownames
+a<- str_extract(rownames(df2), regex('\\]\\[+[0-9]+L')) %>%
+  str_split(., "\\[", simplify = T) %>%
+  as.data.frame() %>%
+  .$V3 %>%
+  gsub("L", "", .) %>%
+  as.numeric() %>%
+  as.data.frame()
+class(a)
+
+# combiner puis faire un left join
+df_unlist <-  data.frame(unlist(df$value)) %>%
+  cbind(., a)
+names(df_unlist)
+
+b <- unlist(df$a) %>%
+  as.double() %>%
+  as.data.frame()
+names(b) <- "a"
+class(b$a)
+
+df_join <- df_unlist %>% left_join(b, by = c("a"))
+
+names(df_unlist) = c("site", "commen")
+
+# Transformer la liste en dataframe ----
+
+df <- as.data.frame(enframe(list_data))
 names(df) <- c("publication", "liens")
-rm(liens_all) # suppression de la liste précédente (on va travailler désormais sur df)
+#rm(liens_all) # suppression de la liste précédente (on va travailler désormais sur df)
 
 # Préparation de données et extraction des noms des sites (pour ne pas récupérer tout le lien)
 splt <- split(df$liens, df$publication) # spliter la liste ainsi créée
 
-# Transformer en data.frame
-df <- data.frame(unlist(splt)) %>%
-      data.frame(str_split(row.names(.), '.d', simplify = T), .) 
-names(df) <- c("publication", "ne_pas_prendre","liens") # renommer les colonnes
-rm(splt) # plus besoin à présent du splt
-
-#################################################################################
 #####  Nettoyer les données et préparer des fichiers txt pour vosviewer   #######
-#################################################################################
+
 df # Donnees
 
 `%not_in%` <- purrr::negate(`%in%`) # construire la négation de "in"
 `%not_like%` <- purrr::negate(`%like%`) # construire la négation de "like"
 
-## liens erronnés à exclure (il n'y a pas beaucoup donc inutile de développer des expressions régulières pour cela)
-exclure <- c(")", 
-             "^![](http:",
-             "![file](https:",
-             ")![file](![https:",
-             ")![file](https:", 
-             ").",
-             "),",
-             "	)![](http:",
-             "2F",
-             ")![](http:",
-             ")2F,",
-             ")https:",
-             ")](http:",
-             "http://)",
-             "http://![](http://))![](http://)",
-             "http://),",
-             "http://)![](http://)![](http://)",
-             "http://)![](http://)",
-             "http://).",
-             "http://)2F,"	
-             )
-## liens bizares :
-liens_bizarres_pubpeer <- c("63537.dots[[1L]][[33043L]]","76578.dots[[1L]][[26350L]]",
-                    "113418.dots[[1L]][[39689L]]2","113418.dots[[1L]][[39689L]]1",
-                    "113420.dots[[1L]][[31132L]]1","118405.dots[[1L]][[32151L]]2",
-                    "117826.dots[[1L]][[21884L]]","115998.dots[[1L]][[36866L]]",
-                    "114885.dots[[1L]][[41539L]]1","67612.dots[[1L]][[43811L]]",
-                    "109088.dots[[1L]][[43462L]]","114001.dots[[1L]][[19235L]]2",
-                    "111799.dots[[1L]][[30785L]]","63909.dots[[1L]][[37628L]]1",
-                    "88844.dots[[1L]][[35579L]]","70109.dots[[1L]][[33647L]]",
-                    "83198.dots[[1L]][[35048L]]3","67963.dots[[1L]][[37872L]]1",
-                    "67963.dots[[1L]][[33470L]]1","80644.dots[[1L]][[38623L]]1",
-                    "80216.dots[[1L]][[27218L]]2","74268.dots[[1L]][[33960L]]",
-                    "72915.dots[[1L]][[40567L]]","72295.dots[[1L]][[4591L]]",
-                    "69018.dots[[1L]][[46509L]]","68341.dots[[1L]][[37910L]]1",
-                    "67014.dots[[1L]][[24815L]]","66618.dots[[1L]][[2156L]]",
-                    "64133.dots[[1L]][[37672L]]2","2575.dots[[1L]][[32547L]]",
-                    "62970.dots[[1L]][[24101L]]1","62780.dots[[1L]][[353L]]2",
-                    "62618.dots[[1L]][[40206L]]","69030.dots[[1L]][[25197L]]1",
-                    "67347.dots[[1L]][[2576L]]","64991.dots[[1L]][[1743L]]1",
-                    "115031.dots[[1L]][[39771L]]1","113418.dots[[1L]][[41484L]]",
-                    "113420.dots[[1L]][[31132L]]2")
-
-lien_bizarre_wiley <- c("63052.dots[[1L]][[24117L]]1")
-lien_bizarre_nih <- c("54057.dots[[1L]][[32614L]]1")
-lien_bizarre_revue <- ("65248.dots[[1L]][[1914L]]")
-
-## exclusion des liens erronnés et des liens bizarres
-# liens erronés
-df <- df %>%   
-       subset(., .$liens %not_in% exclure)
-#correction liens bizarres
-df$liens[rownames(df) %in% liens_bizarres_pubpeer] <- "https://pubpeer.com/"
-df$liens[rownames(df) %in% lien_bizarre_nih] <- "https://www.ncbi.nlm.nih.gov/"
-df$liens[rownames(df) %in% lien_bizarre_revue] <- "https://mja.com.au/"
-df$liens[rownames(df) %in% lien_bizarre_wiley] <- "https://onlinelibrary.wiley.com/"
-# supression vecteurs intermédiaires
-rm(liens_bizarres_pubpeer)
-rm(lien_bizarre_nih)
-rm(lien_bizarre_revue)
-rm(lien_bizarre_wiley)
 
 ## Extraction des sites
-df <- df %>%
-       data.frame(str_split(.$liens, "/", simplify = T)) # Extraire le site
+parsed_url <- data.frame(df$publication, url_parse(df$liens))
+names(parsed_url)[1] = c("publication")
+
+parsed_url$port[parsed_url$publication == "106541"]
+encode = data.frame(url_encode(pr_id_pub$markdown))
+
 
 # Récupérer uniquement les variables d'intérêt
-df <- data.frame(df$publication, df$X3)
+df <- data.frame(as.numeric(df$publication), df$X3)
 names(df) <- c("publication", "sites")
+# df$publication <- as.numeric(df$publication)
+
 
 # Nettoyage supplémentaire
 df$sites[rownames(df) == 19151] <- "vide"
@@ -165,3 +140,4 @@ harmoniser <- c("%pubpeer%", "%twit%", "%yout%")
 
 dbWriteTable(con, "data_sites_comm", df)
 
+parsed_url <- url_parse(df$sites)

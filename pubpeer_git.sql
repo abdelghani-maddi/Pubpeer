@@ -5,8 +5,17 @@
 /*******************************************/
 -- ID des publications dans la base commentaires
 select *	   
-	   from public.data_commentaires∑
-	     where publication ='106541'
+	   from public.data_commentaires
+			where publication ='1'
+/*******************************************/
+
+-- ID des publications dans la base commentaires
+select y.*	   
+	   from public.data_commentaires x,
+	        public.data_sites_comm y
+	        
+			where x.publication = y.publication
+			      and x.publication ='106541'
 
 /* Vérification nombre ID dans les bases */
 
