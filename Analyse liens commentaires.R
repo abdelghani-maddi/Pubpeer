@@ -23,6 +23,8 @@ library(stringr)
 library(rebus)
 library(Matrix)
 library(plyr)
+library(sjmisc)
+
 
 # Connexion ----
 
@@ -41,7 +43,7 @@ dbListTables(con)
 
 reqsql= paste('select inner_id, publication, html as comm from data_commentaires')
 data_comm = dbGetQuery(con,reqsql)
-
+data_comm[1,]
 ### Récupération des commentaires avec liens hypertextes ----
 # Creer la liste des liens qui se trouvent dans les commentaires gardant 
 # le lien avec les publications à partir desquelles sont extraits
@@ -66,78 +68,30 @@ URL_extract<-str_extract_all(URL_var, "(?<=//)[^\\s/:]+") #URL_extract<-str_matc
 names(URL_extract) <- names(URL_var)
 
 # Transformer en liste de dataframe
-list_data <- Map(as.data.frame, URL_extract) 
+list_data <- Map(as.data.frame, URL_extract) %>%
+  rbindlist(., use.names = F, idcol = names(.))
+names(list_data) = c("publication", "site")
 
-t <- ldply(list_data[1:2])
-t <- ldply(list_data[1:2])
-tt <- unite(t, t[,2], t[,2],t[,3], sep = "")
+df = data.frame(list_data$publication, factor(list_data$site))
+names(df) = c("publication", "site")
 
-df <- as.data.frame(enframe(list_data)) 
-df %>% as.double(df[["a"]])
-names(df) = c("a", "value")
+  # list_data[list_data$publication == "106541"] -- petit test -- OK :)
 
-# Extraire les rownames
-a<- str_extract(rownames(df2), regex('\\]\\[+[0-9]+L')) %>%
-  str_split(., "\\[", simplify = T) %>%
-  as.data.frame() %>%
-  .$V3 %>%
-  gsub("L", "", .) %>%
-  as.numeric() %>%
-  as.data.frame()
-class(a)
+# Nettoyer les données et préparer des fichiers txt pour vosviewer ----
+`%not_like%` <- purrr::negate(`%like%`)
+donnees <- list_data[df$site %like% "%\\.%"] 
 
-# combiner puis faire un left join
-df_unlist <-  data.frame(unlist(df$value)) %>%
-  cbind(., a)
-names(df_unlist)
+donnees2 <- data.frame(donnees$publication, stringr::str_remove_all(donnees$site, "[\\p{P}\\p{S}&&[^.]]"))
+names(donnees2) = c("publication", "site")
+donnees3 <- data.frame(as.integer(donnees2$publication), donnees2$site)
+names(donnees3) = c("publication", "site")
 
-b <- unlist(df$a) %>%
-  as.double() %>%
-  as.data.frame()
-names(b) <- "a"
-class(b$a)
+## Exportation des données ----
+dbWriteTable(conn = con, "publication_sites_comm", donnees3)
 
-df_join <- df_unlist %>% left_join(b, by = c("a"))
+## factor
+t <- data.frame(donnees$publication, factor(donnees$site))
+names(t) <- c("publication","site")
 
-names(df_unlist) = c("site", "commen")
-
-# Transformer la liste en dataframe ----
-
-df <- as.data.frame(enframe(list_data))
-names(df) <- c("publication", "liens")
-#rm(liens_all) # suppression de la liste précédente (on va travailler désormais sur df)
-
-# Préparation de données et extraction des noms des sites (pour ne pas récupérer tout le lien)
-splt <- split(df$liens, df$publication) # spliter la liste ainsi créée
-
-#####  Nettoyer les données et préparer des fichiers txt pour vosviewer   #######
-
-df # Donnees
-
-`%not_in%` <- purrr::negate(`%in%`) # construire la négation de "in"
-`%not_like%` <- purrr::negate(`%like%`) # construire la négation de "like"
-
-
-## Extraction des sites
-parsed_url <- data.frame(df$publication, url_parse(df$liens))
-names(parsed_url)[1] = c("publication")
-
-parsed_url$port[parsed_url$publication == "106541"]
-encode = data.frame(url_encode(pr_id_pub$markdown))
-
-
-# Récupérer uniquement les variables d'intérêt
-df <- data.frame(as.numeric(df$publication), df$X3)
-names(df) <- c("publication", "sites")
-# df$publication <- as.numeric(df$publication)
-
-
-# Nettoyage supplémentaire
-df$sites[rownames(df) == 19151] <- "vide"
-
-## Harmonisation des sites "pubpeer", "twitter" et "youtube" : C'est fait avec sql
-harmoniser <- c("%pubpeer%", "%twit%", "%yout%")
-
-dbWriteTable(con, "data_sites_comm", df)
-
-parsed_url <- url_parse(df$sites)
+tt <- data.frame(table(t$site))
+write_csv(tt,"freq sites.csv")

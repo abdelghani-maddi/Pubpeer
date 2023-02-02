@@ -396,18 +396,93 @@ select x.*,
 select distinct x.site_1,
        y.site_2,
 	   count (distinct x.publication)
-	from  (select publication, site as site_1 from liens_com_nettoyes) x,
-		  (select publication, site as site_2 from liens_com_nettoyes) y
+	from  (select publication, site as site_1 from public.publication_sites_comm) x,
+		  (select publication, site as site_2 from public.publication_sites_comm) y,
+		  (select distinct publication from commentaires_par_discipline where discipline = 'Life Sciences Biomedicine') z
 		where x.publication = y.publication
+		      and x.publication = z.publication
+		
+		   group by x.site_1,
+       				y.site_2
+					
+					order by 3 desc
+    
+;
+
+
+
+select distinct x.site_1,
+       y.site_2,
+	   count (distinct x.publication)
+	from  (select publication, site as site_1 from public.publication_sites_comm) x,
+		  (select publication, site as site_2 from public.publication_sites_comm) y,
+		  (select distinct publication from commentaires_par_discipline where discipline = 'Social Sciences') z
+		where x.publication = y.publication
+		      and x.publication = z.publication
+		
 		   group by x.site_1,
        				y.site_2
 					
 					order by 3 desc
 
 
-    
 ;
 
 
 
+
+select distinct x.site_1,
+       y.site_2,
+	   count (distinct x.publication)
+	from  (select publication, site as site_1 from public.publication_sites_comm) x,
+		  (select publication, site as site_2 from public.publication_sites_comm) y,
+		  (select distinct publication from commentaires_par_discipline where discipline = 'Physical Sciences') z
+		where x.publication = y.publication
+		      and x.publication = z.publication
 		
+		   group by x.site_1,
+       				y.site_2
+					
+					order by 3 desc
+;
+
+
+
+select distinct x.site_1,
+       y.site_2,
+	   count (distinct x.publication)
+	from  (select publication, site as site_1 from public.publication_sites_comm) x,
+		  (select publication, site as site_2 from public.publication_sites_comm) y,
+		  (select distinct publication from commentaires_par_discipline where discipline = 'Technology') z
+		where x.publication = y.publication
+		      and x.publication = z.publication
+		
+		   group by x.site_1,
+       				y.site_2
+					
+					order by 3 desc
+;
+
+
+
+select distinct x.site_1,
+       y.site_2,
+	   count (distinct x.publication)
+	from  (select publication, site as site_1 from public.publication_sites_comm) x,
+		  (select publication, site as site_2 from public.publication_sites_comm) y,
+		  (select distinct publication from commentaires_par_discipline where discipline = 'Arts Humanities') z
+		where x.publication = y.publication
+		      and x.publication = z.publication
+		
+		   group by x.site_1,
+       				y.site_2
+					
+					order by 3 desc
+;
+
+/* typologie des sites */
+
+select distinct site as site_1 
+       from public.publication_sites_comm
+	         where site like '%edu%'
+	     ;
