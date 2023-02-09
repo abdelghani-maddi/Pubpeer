@@ -24,6 +24,10 @@ library(rebus)
 library(Matrix)
 library(plyr)
 library(sjmisc)
+library(regexplain)
+ 
+# install.packages('remotes')
+# remotes::install_github("gadenbuie/regexplain")
 
 
 # Connexion ----
@@ -60,7 +64,6 @@ URL_var <- as_tibble(data_comm) %>% # Etape 0
 
 #### Etape 4 : Créer un pattern pour l'extraction des URL ----
 pat<- "//" %R% capture(one_or_more(char_class(WRD,DOT))) 
-
 #### Etape 5 : Utiliser "rebus" pour extraire l'URL principal ----
 URL_extract<-str_extract_all(URL_var, "(?<=//)[^\\s/:]+") #URL_extract<-str_match_all(URL_var, pattern = pat) 
 
@@ -75,7 +78,7 @@ names(list_data) = c("publication", "site")
 df = data.frame(list_data$publication, factor(list_data$site))
 names(df) = c("publication", "site")
 
-  # list_data[list_data$publication == "106541"] -- petit test -- OK :)
+# list_data[list_data$publication == "106541"] -- petit test -- OK :)
 
 # Nettoyer les données et préparer des fichiers txt pour vosviewer ----
 `%not_like%` <- purrr::negate(`%like%`)
@@ -83,15 +86,25 @@ donnees <- list_data[df$site %like% "%\\.%"]
 
 donnees2 <- data.frame(donnees$publication, stringr::str_remove_all(donnees$site, "[\\p{P}\\p{S}&&[^.]]"))
 names(donnees2) = c("publication", "site")
+
 donnees3 <- data.frame(as.integer(donnees2$publication), donnees2$site)
 names(donnees3) = c("publication", "site")
 
 ## Exportation des données ----
 dbWriteTable(conn = con, "publication_sites_comm", donnees3)
 
-## factor
-t <- data.frame(donnees$publication, factor(donnees$site))
+# Typologie des sites ----
+## Transformer en "factor"
+t <- data.frame(donnees$publication, factor(donnees3$site))
 names(t) <- c("publication","site")
 
-tt <- data.frame(table(t$site))
-write_csv(tt,"freq sites.csv")
+f <- t$site |> 
+  fct_infreq() |> 
+  questionr::freq()
+
+freqsit <- data.frame(rownames(f),f)
+names(freqsit) = c("site","nb","part","freq")
+
+pattern <- c("blog|.edu|twitter|youtube|facebook|retract|fraud|fraud|google")
+
+a <- rematch2::re_match_all(tolower(donnees3$site), pattern = pattern, perl = T)
