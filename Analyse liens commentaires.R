@@ -25,7 +25,8 @@ library(Matrix)
 library(plyr)
 library(sjmisc)
 library(regexplain)
- 
+library(gtsummary)
+
 # install.packages('remotes')
 # remotes::install_github("gadenbuie/regexplain")
 
@@ -110,6 +111,60 @@ names(freqsit) = c("site","nb","part","freq")
 
 class_sites <- readxl::read_xlsx("classification sites.xlsx", col_names = TRUE)
 
-pattern <- c("blog|.edu|twitter|youtube|facebook|retract|fraud|fraud|google")
+t <- donnees3 %>% 
+  fuzzyjoin::regex_left_join(class_sites, by = c("site" = "site")) %>% # un left join avec expressions régulières (contain)
+  data.frame(factor(.$site.y), factor(.$type)) %>%
+  .[,c(1,2,5,6)] %>%
+  mutate(id = seq(1:length(t$site))) # ajouter une colone avec id unique au cas où -- pas nécessaire
+  names(t) <- c("publication", "site", "pattern", "type_sit", "id")
 
-a <- rematch2::re_match_all(tolower(donnees3$site), pattern = pattern, perl = T)
+## Recoding t$type
+t$type_sit <- t$type_sit %>%
+  fct_explicit_na("Autre")
+
+
+##
+t2 <- data.frame(t$publication, t$type)
+tbl_summary(t2)
+## 
+f_autre <- t$site[t$type=="Autre"] |> 
+  fct_infreq() |> 
+  questionr::freq()
+
+## Calcul des cooccurrences ----
+# Créer un data frame de test
+df <- data.frame(id = t$publication,
+                 col = t$type_sit)
+
+# Récupérer les valeurs uniques de la colonne col
+unique_vals <- unique(df$col)
+
+# Générer toutes les combinaisons possibles des valeurs
+combinations <- combn(unique_vals, 2)
+
+# Initialiser un data frame pour stocker les résultats
+results <- data.frame(col1 = character(), col2 = character(), count = numeric())
+
+# Boucle sur les combinaisons
+for (i in 1:ncol(combinations)) {
+  # Sélectionner les lignes pour lesquelles la valeur de col correspond à la première ou la deuxième valeur de la combinaison actuelle
+  temp_df <- df %>% 
+    filter(col == combinations[1, i] | col == combinations[2, i])
+  
+  # Compter le nombre de cooccurrences de la première et de la deuxième valeur de la combinaison actuelle
+  temp_result <- temp_df %>% 
+    group_by(id) %>% 
+    summarise(count = sum(col == combinations[1, i] & shift(col, type = "lead") == combinations[2, i] | 
+                            col == combinations[2, i] & shift(col, type = "lag") == combinations[1, i]))
+  
+  # Ajouter les résultats temporaires au data frame de résultats
+  results <- rbind(results, data.frame(col1 = combinations[1, i], col2 = combinations[2, i], 
+                                       count = sum(temp_result$count)))
+}
+
+# retirer les NA
+results <- results[complete.cases(results), ]
+
+# Imprimer le résultat
+# print(results)
+
