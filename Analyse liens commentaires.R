@@ -29,6 +29,9 @@ library(regexplain)
 # install.packages('remotes')
 # remotes::install_github("gadenbuie/regexplain")
 
+# Dossier travail
+setwd('/Users/maddi/Documents/Pubpeer project/Pubpeer')
+
 
 # Connexion ----
 
@@ -104,6 +107,8 @@ f <- t$site |>
 
 freqsit <- data.frame(rownames(f),f)
 names(freqsit) = c("site","nb","part","freq")
+
+class_sites <- readxl::read_xlsx("classification sites.xlsx", col_names = TRUE)
 
 pattern <- c("blog|.edu|twitter|youtube|facebook|retract|fraud|fraud|google")
 
