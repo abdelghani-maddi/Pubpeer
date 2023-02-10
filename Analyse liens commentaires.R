@@ -26,6 +26,7 @@ library(plyr)
 library(sjmisc)
 library(regexplain)
 library(gtsummary)
+library(igraph)
 
 # install.packages('remotes')
 # remotes::install_github("gadenbuie/regexplain")
@@ -51,7 +52,7 @@ dbListTables(con)
 
 reqsql= paste('select inner_id, publication, html as comm from data_commentaires')
 data_comm = dbGetQuery(con,reqsql)
-data_comm[1,]
+
 ### Récupération des commentaires avec liens hypertextes ----
 # Creer la liste des liens qui se trouvent dans les commentaires gardant 
 # le lien avec les publications à partir desquelles sont extraits
@@ -111,12 +112,12 @@ names(freqsit) = c("site","nb","part","freq")
 
 class_sites <- readxl::read_xlsx("classification sites.xlsx", col_names = TRUE)
 
-t <- donnees3 %>% 
+t <- t %>% 
   fuzzyjoin::regex_left_join(class_sites, by = c("site" = "site")) %>% # un left join avec expressions régulières (contain)
   data.frame(factor(.$site.y), factor(.$type)) %>%
-  .[,c(1,2,5,6)] %>%
-  mutate(id = seq(1:length(t$site))) # ajouter une colone avec id unique au cas où -- pas nécessaire
-  names(t) <- c("publication", "site", "pattern", "type_sit", "id")
+  .[,c(1,2,5,6)]
+  #mutate(id = seq(1:length(t$site))) # ajouter une colone avec id unique au cas où -- pas nécessaire
+  names(t) <- c("publication", "site", "pattern", "type_sit")
 
 ## Recoding t$type
 t$type_sit <- t$type_sit %>%
@@ -124,7 +125,7 @@ t$type_sit <- t$type_sit %>%
 
 
 ##
-t2 <- data.frame(t$publication, t$type)
+t2 <- data.frame(t$publication, t$type_sit) 
 tbl_summary(t2)
 ## 
 f_autre <- t$site[t$type=="Autre"] |> 
@@ -165,6 +166,25 @@ for (i in 1:ncol(combinations)) {
 # retirer les NA
 results <- results[complete.cases(results), ]
 
+## Exporter pour utiliser dans vosviewer
+write.csv(results, "cooccurrences_sites_typo.csv")
+
 # Imprimer le résultat
 # print(results)
 
+# Représenter graphiquement le réseau ----
+
+# Convertir les colonnes en liste de bords
+edge_list <- as.matrix(results[, c("col1", "col2")])
+
+# Ajouter le poids des bords à partir de la colonne "nb_cooccurrences"
+weights <- results$count
+
+# Créer un graphe non orienté à partir de la liste de bords
+g <- graph_from_edgelist(edge_list, directed = FALSE)
+
+# Ajouter les poids aux bords
+E(g)$weight <- weights
+
+# Visualiser le graphe
+plot(g, edge.width = E(g)$weight)

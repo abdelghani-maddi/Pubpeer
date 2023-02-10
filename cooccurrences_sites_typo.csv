@@ -1,0 +1,162 @@
+"","col1","col2","count"
+"1","Sites gouvernementaux","Pubpeer",4116
+"4","Sites gouvernementaux","Autre",3676
+"7","Sites gouvernementaux","Sites universitaires",784
+"10","Sites gouvernementaux","Réseaux sociaux",834
+"11","Sites gouvernementaux","doi.org",1578
+"71","Spécialisés","Autre",2880
+"74","Spécialisés","Sites universitaires",704
+"77","Spécialisés","Réseaux sociaux",756
+"78","Spécialisés","doi.org",1350
+"103","Blogs","Autre",1130
+"104","Blogs","Magazine-presse",292
+"105","Blogs","Sciencedirect",504
+"106","Blogs","Sites universitaires",450
+"107","Blogs","J Bio Chim",340
+"108","Blogs","Springer",388
+"109","Blogs","Réseaux sociaux",498
+"110","Blogs","doi.org",592
+"111","Blogs","Web archive",164
+"112","Blogs","Plos",524
+"113","Blogs","Frontier",138
+"114","Blogs","Nature",654
+"115","Blogs","Wikipedia",320
+"118","Blogs","Wiley",1344
+"121","Blogs","Elsevier",138
+"122","Blogs","Arxiv",230
+"123","Blogs","Oxford Academic",170
+"126","Blogs","Medrxiv",32
+"127","Blogs","Pnas",218
+"128","Blogs","Code",168
+"129","Blogs","Cell",224
+"130","Blogs","Biorxiv",172
+"134","Blogs","Publication ethics",126
+"140","Autre","Réseaux sociaux",1466
+"141","Autre","doi.org",3104
+"166","Magazine-presse","Sciencedirect",334
+"167","Magazine-presse","Sites universitaires",406
+"168","Magazine-presse","J Bio Chim",194
+"169","Magazine-presse","Springer",300
+"170","Magazine-presse","Réseaux sociaux",322
+"171","Magazine-presse","doi.org",394
+"174","Magazine-presse","Frontier",116
+"175","Magazine-presse","Nature",360
+"179","Magazine-presse","Wiley",270
+"183","Magazine-presse","Arxiv",230
+"196","Sciencedirect","Sites universitaires",510
+"197","Sciencedirect","J Bio Chim",352
+"199","Sciencedirect","Réseaux sociaux",580
+"200","Sciencedirect","doi.org",1038
+"212","Sciencedirect","Arxiv",226
+"227","Sites universitaires","Réseaux sociaux",818
+"228","Sites universitaires","doi.org",774
+"254","J Bio Chim","Réseaux sociaux",266
+"255","J Bio Chim","doi.org",398
+"280","Springer","Réseaux sociaux",506
+"281","Springer","doi.org",800
+"285","Springer","Nature",720
+"289","Springer","Wiley",462
+"293","Springer","Arxiv",206
+"356","Web archive","Frontier",78
+"357","Web archive","Nature",164
+"361","Web archive","Wiley",140
+"365","Web archive","Arxiv",108
+"369","Web archive","Medrxiv",30
+"370","Web archive","Pnas",92
+"371","Web archive","Code",78
+"378","Plos","Frontier",128
+"379","Plos","Nature",458
+"383","Plos","Wiley",366
+"387","Plos","Arxiv",178
+"391","Plos","Medrxiv",28
+"392","Plos","Pnas",204
+"393","Plos","Code",150
+"400","Frontier","Nature",168
+"404","Frontier","Wiley",148
+"408","Frontier","Arxiv",98
+"428","Nature","Arxiv",242
+"443","Wikipedia","Wiley",276
+"447","Wikipedia","Arxiv",184
+"451","Wikipedia","Medrxiv",26
+"452","Wikipedia","Pnas",190
+"453","Wikipedia","Code",162
+"460","J Cancer Reserch","Taylor and Francis",94
+"461","J Cancer Reserch","Wiley",218
+"462","J Cancer Reserch","Google docs",32
+"464","J Cancer Reserch","Elsevier",72
+"465","J Cancer Reserch","Arxiv",112
+"466","J Cancer Reserch","Oxford Academic",96
+"469","J Cancer Reserch","Medrxiv",18
+"470","J Cancer Reserch","Pnas",130
+"471","J Cancer Reserch","Code",80
+"472","J Cancer Reserch","Cell",142
+"473","J Cancer Reserch","Biorxiv",80
+"477","J Cancer Reserch","Publication ethics",82
+"478","Taylor and Francis","Wiley",222
+"479","Taylor and Francis","Google docs",80
+"481","Taylor and Francis","Elsevier",106
+"482","Taylor and Francis","Arxiv",116
+"483","Taylor and Francis","Oxford Academic",96
+"486","Taylor and Francis","Medrxiv",28
+"487","Taylor and Francis","Pnas",114
+"488","Taylor and Francis","Code",88
+"489","Taylor and Francis","Cell",116
+"490","Taylor and Francis","Biorxiv",86
+"494","Taylor and Francis","Publication ethics",76
+"498","Wiley","Arxiv",198
+"512","Google docs","Elsevier",46
+"513","Google docs","Arxiv",44
+"514","Google docs","Oxford Academic",46
+"517","Google docs","Medrxiv",16
+"518","Google docs","Pnas",44
+"519","Google docs","Code",32
+"520","Google docs","Cell",34
+"521","Google docs","Biorxiv",30
+"525","Google docs","Publication ethics",30
+"526","Scholarlyoa","Elsevier",34
+"527","Scholarlyoa","Arxiv",50
+"528","Scholarlyoa","Oxford Academic",40
+"529","Scholarlyoa","Image",44
+"530","Scholarlyoa","Zenodo",4
+"531","Scholarlyoa","Medrxiv",8
+"532","Scholarlyoa","Pnas",50
+"533","Scholarlyoa","Code",52
+"534","Scholarlyoa","Cell",60
+"535","Scholarlyoa","Biorxiv",34
+"536","Scholarlyoa","Raphazlab",14
+"537","Scholarlyoa","Myths of vision science",4
+"538","Scholarlyoa","Molec. Cell Bio",28
+"539","Scholarlyoa","Publication ethics",46
+"540","Elsevier","Arxiv",104
+"541","Elsevier","Oxford Academic",90
+"544","Elsevier","Medrxiv",28
+"545","Elsevier","Pnas",92
+"546","Elsevier","Code",86
+"547","Elsevier","Cell",86
+"552","Elsevier","Publication ethics",78
+"567","Oxford Academic","Medrxiv",26
+"568","Oxford Academic","Pnas",116
+"569","Oxford Academic","Code",106
+"570","Oxford Academic","Cell",114
+"576","Image","Zenodo",22
+"577","Image","Medrxiv",22
+"578","Image","Pnas",142
+"579","Image","Code",126
+"580","Image","Cell",166
+"581","Image","Biorxiv",134
+"584","Image","Molec. Cell Bio",96
+"585","Image","Publication ethics",80
+"586","Zenodo","Medrxiv",14
+"587","Zenodo","Pnas",18
+"588","Zenodo","Code",22
+"589","Zenodo","Cell",14
+"590","Zenodo","Biorxiv",20
+"594","Zenodo","Publication ethics",12
+"595","Medrxiv","Pnas",24
+"624","Biorxiv","Publication ethics",74
+"625","Raphazlab","Myths of vision science",6
+"626","Raphazlab","Molec. Cell Bio",26
+"627","Raphazlab","Publication ethics",20
+"628","Myths of vision science","Molec. Cell Bio",6
+"629","Myths of vision science","Publication ethics",6
+"630","Molec. Cell Bio","Publication ethics",42
