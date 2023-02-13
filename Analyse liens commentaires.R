@@ -43,7 +43,7 @@ db <- 'SKEPTISCIENCE'  #provide the name of your db
 host_db <- 'localhost' # server
 db_port <- '5433'  # port DBA
 db_user <- 'postgres' # nom utilisateur  
-db_password <- 'Maroua1912'
+db_password <- '********'
 con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port, user=db_user, password=db_password)  
 # Test connexion
 dbListTables(con) 
@@ -86,9 +86,12 @@ names(df) = c("publication", "site")
 # list_data[list_data$publication == "106541"] -- petit test -- OK :)
 
 # Nettoyer les données et préparer des fichiers txt pour vosviewer ----
-`%not_like%` <- purrr::negate(`%like%`)
+`%not_like%` <- purrr::negate(`%like%`) # juste au cas où j'aurais besoin du not_like.
+`%not_in%` <- purrr::negate(`%in%`) # juste au cas où j'aurais besoin du not_like.
+
 donnees <- list_data[df$site %like% "%\\.%"] 
 
+# Supprimer tous les caractères spéciaux sauf le "."
 donnees2 <- data.frame(donnees$publication, stringr::str_remove_all(donnees$site, "[\\p{P}\\p{S}&&[^.]]"))
 names(donnees2) = c("publication", "site")
 
@@ -99,43 +102,73 @@ names(donnees3) = c("publication", "site")
 dbWriteTable(conn = con, "publication_sites_comm", donnees3)
 
 # Typologie des sites ----
-## Transformer en "factor"
-t <- data.frame(donnees$publication, factor(donnees3$site))
+## Transformer en "factor" les sites
+t <- data.frame(donnees3$publication, factor(donnees3$site))
 names(t) <- c("publication","site")
 
+# Calculer les fréquences pour avoir une idée de la distribution des sites
 f <- t$site |> 
   fct_infreq() |> 
   questionr::freq()
 
+# juste pour rajouter la noms de lignes en tant que colonne
 freqsit <- data.frame(rownames(f),f)
 names(freqsit) = c("site","nb","part","freq")
 
+# Importer les données téseaurus pour unifier et mettre en forme les sites (ceux qui sont les plus fréquents)
 class_sites <- readxl::read_xlsx("classification sites.xlsx", col_names = TRUE)
 
-t <- t %>% 
-  fuzzyjoin::regex_left_join(class_sites, by = c("site" = "site")) %>% # un left join avec expressions régulières (contain)
-  data.frame(factor(.$site.y), factor(.$type)) %>%
-  .[,c(1,2,5,6)]
+t2 <- t %>% 
+    left_join(class_sites, by = c("site")) %>% # un left join avec expressions régulières (contain)
+    data.frame(factor(.$site), factor(.$type_sit)) %>%
+    .[,c(1,5,4)]
   #mutate(id = seq(1:length(t$site))) # ajouter une colone avec id unique au cas où -- pas nécessaire
-  names(t) <- c("publication", "site", "pattern", "type_sit")
+  names(t2) <- c("publication", "site", "type_sit")
 
-## Recoding t$type
-t$type_sit <- t$type_sit %>%
+  
+  ## Recoding t$type
+t2$type_sit <- t2$type_sit %>%
   fct_explicit_na("Autre")
 
-
-##
-t2 <- data.frame(t$publication, t$type_sit) 
-tbl_summary(t2)
 ## 
-f_autre <- t$site[t$type=="Autre"] |> 
+f_autre <- t2$site[t2$type_sit=="Autre"] |> 
   fct_infreq() |> 
   questionr::freq()
 
+###
+# Importer les données téseaurus pour unifier et mettre en forme les sites (ceux qui sont les plus fréquents)
+class_sites2 <- readxl::read_xlsx("classification sites2.xlsx", col_names = TRUE)
+
+t3 <- filter(t2, t2$type_sit=="Autre") %>% 
+  fuzzyjoin::regex_left_join(class_sites2, by = c("site" = "site")) %>% # un left join avec expressions régulières (contain)
+  data.frame(factor(.$site.y), factor(.$type_sit.y)) %>%
+  .[,c(1,2,8)] 
+
+names(t3) <- c("publication", "site", "type_sit")
+
+## Recoding t$type
+t3$type_sit <- t3$type_sit %>%
+  fct_explicit_na("Autre")
+
+## 
+f_autre <- t3$site[t3$type_sit=="Autre"] |> 
+  fct_infreq() |> 
+  questionr::freq()
+
+## Union des deux tables
+t4 <- filter(t2, t2$type_sit %not_in% c("Autre")) %>%
+  union_all(.,t3)
+
+###
+tbl_t4 <- data.frame(t4$publication,t4$type_sit)
+tbl_summary(tbl_t4)
+
+dbWriteTable(con, "data_type_sites", t4)
+
 ## Calcul des cooccurrences ----
 # Créer un data frame de test
-df <- data.frame(id = t$publication,
-                 col = t$type_sit)
+df <- data.frame(id = t4$publication,
+                 col = t4$type_sit)
 
 # Récupérer les valeurs uniques de la colonne col
 unique_vals <- unique(df$col)

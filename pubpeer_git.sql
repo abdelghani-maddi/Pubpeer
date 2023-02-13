@@ -468,8 +468,8 @@ select distinct x.site_1,
 select distinct x.site_1,
        y.site_2,
 	   count (distinct x.publication)
-	from  (select publication, site as site_1 from public.publication_sites_comm) x,
-		  (select publication, site as site_2 from public.publication_sites_comm) y,
+	from  (select publication, type_sit as site_1 from public.data_type_sites) x,
+		  (select publication, type_sit as site_2 from public.data_type_sites) y,
 		  (select distinct publication from commentaires_par_discipline where discipline = 'Arts Humanities') z
 		where x.publication = y.publication
 		      and x.publication = z.publication
@@ -486,3 +486,20 @@ select distinct site as site_1
        from public.publication_sites_comm
 	         where site like '%edu%'
 	     ;
+
+
+
+create table coocurrences_typ_sites as 
+select distinct x.site_1,
+       y.site_2,
+	   count (distinct x.publication)
+	from  (select publication, type_sit as site_1 from public.data_type_sites) x,
+		  (select publication, type_sit as site_2 from public.data_type_sites) y
+		
+		where x.publication = y.publication
+		
+		   group by x.site_1,
+       				y.site_2
+					
+					order by 3 desc
+;
