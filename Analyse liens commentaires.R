@@ -43,7 +43,7 @@ db <- 'SKEPTISCIENCE'  #provide the name of your db
 host_db <- 'localhost' # server
 db_port <- '5433'  # port DBA
 db_user <- 'postgres' # nom utilisateur  
-db_password <- '********'
+db_password <- 'Maroua1912'
 con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port, user=db_user, password=db_password)  
 # Test connexion
 dbListTables(con) 
@@ -88,26 +88,32 @@ names(df) = c("publication", "site")
 # Nettoyer les données et préparer des fichiers txt pour vosviewer ----
 `%not_like%` <- purrr::negate(`%like%`) # juste au cas où j'aurais besoin du not_like.
 `%not_in%` <- purrr::negate(`%in%`) # juste au cas où j'aurais besoin du not_like.
+donnees <- list_data[df$site %like% "%\\.%"]
 
-donnees <- list_data[df$site %like% "%\\.%"] 
+# Le site doit contenir au moins un caractère alphabetique  
+donnees1 <- donnees[grep("[a-zA-Z]", donnees$site), ]
 
 # Supprimer tous les caractères spéciaux sauf le "."
-donnees2 <- data.frame(donnees$publication, stringr::str_remove_all(donnees$site, "[\\p{P}\\p{S}&&[^.]]"))
+donnees2 <- data.frame(donnees1$publication, stringr::str_remove_all(donnees1$site, "[\\p{P}\\p{S}&&[^.]]"))
 names(donnees2) = c("publication", "site")
 
+# Transformation des données (sites as integer)
 donnees3 <- data.frame(as.integer(donnees2$publication), donnees2$site)
 names(donnees3) = c("publication", "site")
 
 ## Exportation des données ----
-dbWriteTable(conn = con, "publication_sites_comm", donnees3)
+#  dbWriteTable(conn = con, "publication_sites_comm", donnees3)
 
 # Typologie des sites ----
 ## Transformer en "factor" les sites
-t <- data.frame(donnees3$publication, factor(donnees3$site))
+t <- data.frame(donnees3$publication, factor(donnees3$site)) 
 names(t) <- c("publication","site")
 
+# Utiliser la fonction ave() pour ajouter une colonne avec une séquence numérique qui se réinitialise selon id
+t$seq <- ave(t$publication, t$publication, FUN = function(x) seq_along(x))
+
 # Calculer les fréquences pour avoir une idée de la distribution des sites
-f <- t$site |> 
+f <- t$site |>
   fct_infreq() |> 
   questionr::freq()
 
@@ -158,12 +164,31 @@ f_autre <- t3$site[t3$type_sit=="Autre"] |>
 ## Union des deux tables
 t4 <- filter(t2, t2$type_sit %not_in% c("Autre")) %>%
   union_all(.,t3)
+###
+# faire le tableau de stats sans Pubpeer et doi.org qui représentent environ 80% des sites dans les commentaires de Pubpeer
+tbl_t4 <- subset(t4, !grepl("Pubpeer|doi.org", type_sit))
+
+f_autre <- tbl_t4$site[tbl_t4$type_sit=="Autre"] |> 
+  fct_infreq() |> 
+  questionr::freq()
+# juste pour rajouter la noms de lignes en tant que colonne
+freqsit <- data.frame(rownames(f_autre),f_autre)
+names(freqsit) = c("site","nb","part","freq")
+
 
 ###
-tbl_t4 <- data.frame(t4$publication,t4$type_sit)
-tbl_summary(tbl_t4)
+#tbl_t4 <- data.frame(t4$publication,t4$type_sit)
+tbl_t4 %>% 
+  select(publication, type_sit) %>%
+  tbl_summary(sort = all_categorical() ~ "frequency")
 
-dbWriteTable(con, "data_type_sites", t4)
+
+# dbWriteTable(con, "data_type_sites", t4)
+
+
+
+
+
 
 ## Calcul des cooccurrences ----
 # Créer un data frame de test
