@@ -111,9 +111,14 @@ names(t) <- c("publication","site")
 
 # Utiliser la fonction ave() pour ajouter une colonne avec une séquence numérique qui se réinitialise selon id
 t$seq <- ave(t$publication, t$publication, FUN = function(x) seq_along(x))
+# Utiliser la fonction group_by() pour regrouper les données par identifiant
+grouped_df <- t %>% 
+  group_by(publication) %>% 
+  mutate(quartile = ntile(seq, 4))
+
 
 # Calculer les fréquences pour avoir une idée de la distribution des sites
-f <- t$site |>
+f <- grouped_df$site |>
   fct_infreq() |> 
   questionr::freq()
 
@@ -127,11 +132,18 @@ class_sites <- readxl::read_xlsx("classification sites.xlsx", col_names = TRUE)
 t2 <- t %>% 
     left_join(class_sites, by = c("site")) %>% # un left join avec expressions régulières (contain)
     data.frame(factor(.$site), factor(.$type_sit)) %>%
-    .[,c(1,5,4)]
-  #mutate(id = seq(1:length(t$site))) # ajouter une colone avec id unique au cas où -- pas nécessaire
-  names(t2) <- c("publication", "site", "type_sit")
+    .[,c(1,3,6,7)]
+   names(t2) <- c("publication", "seq","site", "sit_harm")
 
-  
+# Remplacer les valeurs manquantes dans col1 avec les valeurs correspondantes dans col2
+t2$site <- as.character(t2$site)
+t2$sit_harm <- as.character(t2$sit_harm)
+t2$sit_harm[is.na(t2$sit_harm)] <- t2$site[is.na(t2$sit_harm)]
+t2$site <- factor(t2$site)
+t2$sit_harm <- factor(t2$sit_harm)  
+
+dbWriteTable(con, "data_sites_harmo", t2)
+
   ## Recoding t$type
 t2$type_sit <- t2$type_sit %>%
   fct_explicit_na("Autre")
