@@ -42,7 +42,7 @@ group_similar_elements <- function(v, threshold) {
 # Utiliser la fonction pour regrouper les éléments de v selon leur ressemblance
 groups <- group_similar_elements(v, threshold = 2)
 
-# Afficher les groupes
+# Afficher les groupes 
 groups
 
 # Créer un vecteur d'identifiants pour chaque groupe
