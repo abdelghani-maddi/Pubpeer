@@ -52,7 +52,7 @@ ids <- seq_along(groups)
 df <- data.frame(id = rep(ids, lengths(groups)),
                  element = unlist(groups))
 
-# Afficher le dataframe
+# Afficher le dataframe 
 df
 
 # Calculer les fréquences pour avoir une idée de la distribution des sites
