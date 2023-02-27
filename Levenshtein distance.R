@@ -55,8 +55,12 @@ df <- data.frame(id = rep(ids, lengths(groups)),
 # Afficher le dataframe
 df
 
-#
 # Calculer les fréquences pour avoir une idée de la distribution des sites
-f <- factor(df$element[df$id!=27 & df$id!=2]) |>
+f <- factor(df$element) |>
+  fct_infreq() |> 
+  questionr::freq()
+
+
+f <- factor(df$id[df$id!=27 & df$id!=2]) |>
   fct_infreq() |> 
   questionr::freq()
