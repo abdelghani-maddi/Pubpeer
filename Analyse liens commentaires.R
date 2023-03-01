@@ -144,58 +144,61 @@ t2$sit_harm <- factor(t2$sit_harm)
 
 dbWriteTable(con, "data_sites_harmo", t2)
 
-  ## Recoding t$type
-t2$type_sit <- t2$type_sit %>%
-  fct_explicit_na("Autre")
+# exclure du dataframe toutes les lignes (sites) dont on sait qu'ils ne sont pas des sites de discussion
 
-## 
-f_autre <- t2$site[t2$type_sit=="Autre"] |> 
-  fct_infreq() |> 
-  questionr::freq()
-
-###
-# Importer les données téseaurus pour unifier et mettre en forme les sites (ceux qui sont les plus fréquents)
+# Récupérer les données de sites à exclure
 class_sites2 <- readxl::read_xlsx("classification sites2.xlsx", col_names = TRUE)
 
-t3 <- filter(t2, t2$type_sit=="Autre") %>% 
-  fuzzyjoin::regex_left_join(class_sites2, by = c("site" = "site")) %>% # un left join avec expressions régulières (contain)
-  data.frame(factor(.$site.y), factor(.$type_sit.y)) %>%
-  .[,c(1,2,8)] 
+# Vecteur contenant les valeurs à exclure
+search_strings <- class_sites2$site
 
-names(t3) <- c("publication", "site", "type_sit")
+# Extraction des lignes pour lesquelles la colonne "element" contient une partie des chaînes de caractères
+new_df <- t2[!apply(sapply(search_strings, function(x) grepl(x, t2$sit_harm)), 1, any), ]
 
-## Recoding t$type
-t3$type_sit <- t3$type_sit %>%
-  fct_explicit_na("Autre")
-
-## 
-f_autre <- t3$site[t3$type_sit=="Autre"] |> 
+# Calculer les fréquences pour avoir une idée de la distribution des sites
+f <- factor(new_df$sit_harm) |>
   fct_infreq() |> 
   questionr::freq()
 
-## Union des deux tables
-t4 <- filter(t2, t2$type_sit %not_in% c("Autre")) %>%
-  union_all(.,t3)
-###
-# faire le tableau de stats sans Pubpeer et doi.org qui représentent environ 80% des sites dans les commentaires de Pubpeer
-tbl_t4 <- subset(t4, !grepl("Pubpeer|doi.org", type_sit))
-
-f_autre <- tbl_t4$site[tbl_t4$type_sit=="Autre"] |> 
-  fct_infreq() |> 
-  questionr::freq()
-# juste pour rajouter la noms de lignes en tant que colonne
-freqsit <- data.frame(rownames(f_autre),f_autre)
-names(freqsit) = c("site","nb","part","freq")
+f_a_analyser <- data.frame(rownames(f),f)
 
 
-###
-#tbl_t4 <- data.frame(t4$publication,t4$type_sit)
-tbl_t4 %>% 
-  select(publication, type_sit) %>%
-  tbl_summary(sort = all_categorical() ~ "frequency")
+## Je me rends compte qu'il faut garder le lien original tel que cité dans le commentaire
+## je refait donc une extraction ici
 
 
-# dbWriteTable(con, "data_type_sites", t4)
+# Exemple de vecteur de caractères
+text <- URL_var
+
+# Expression régulière pour extraire les URLs
+url_pattern <- "(https?://)?(www\\.)?\\w+\\.\\w+(/[\\w\\-./?%&=]*)?"
+
+# Extraction des URLs
+urls_orig <- regmatches(text, gregexpr(url_pattern, text))
+
+urls <- str_extract_all(text, "(?<=href=\")[^\"]*")
+
+urls <- unlist(regmatches(text, gregexpr("https?://\\S+|www\\.\\S+", gsub("\"", "'", text), perl=TRUE)))
+urls
+
+
+# Affichage des URLs
+# unlist(urls_orig)
+
+# Attribuer aux liens, les identifiants des publications d'où ils sont issus ----
+names(urls_orig) <- names(URL_var)
+
+# Transformer en liste de dataframe
+list_data_ori <- Map(as.data.frame, urls_orig) %>%
+  rbindlist(., use.names = F, idcol = names(.))
+names(list_data_ori) = c("publication", "site")
+
+df_ori = data.frame(list_data_ori$publication, factor(list_data_ori$site))
+names(df_ori) = c("publication", "site")
+
+
+
+
 
 
 

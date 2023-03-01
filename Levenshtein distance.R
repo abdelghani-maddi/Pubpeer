@@ -1,3 +1,5 @@
+## Calcul de la distance Levenshtein pour regrouper les sites qui sont les mêmes -----
+
 # Créer un vecteur textuel
 v <- as.character(t2$sit_harm)
 
@@ -54,6 +56,8 @@ df <- data.frame(id = rep(ids, lengths(groups)),
 
 # Afficher le dataframe 
 df
+
+
 
 # Calculer les fréquences pour avoir une idée de la distribution des sites
 f <- factor(df$element) |>
