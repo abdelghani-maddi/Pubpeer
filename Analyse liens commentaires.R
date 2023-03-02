@@ -27,6 +27,8 @@ library(sjmisc)
 library(regexplain)
 library(gtsummary)
 library(igraph)
+library(rJava)
+library(xlsx)
 
 # install.packages('remotes')
 # remotes::install_github("gadenbuie/regexplain")
@@ -154,6 +156,14 @@ search_strings <- class_sites2$site
 
 # Extraction des lignes pour lesquelles la colonne "element" contient une partie des chaînes de caractères
 new_df <- t2[!apply(sapply(search_strings, function(x) grepl(x, t2$sit_harm)), 1, any), ]
+
+# Calculer les fréquences pour avoir une idée de la distribution des sites
+f2 <- factor(t2$sit_harm) |>
+  fct_infreq() |> 
+  questionr::freq()
+f_a_analyser <- data.frame(rownames(f2),f2$n,f2$`val%`)
+names(f_a_analyser) <- c("site", "nbr_apparitions", "part")
+
 
 # Calculer les fréquences pour avoir une idée de la distribution des sites
 f <- factor(new_df$sit_harm) |>
