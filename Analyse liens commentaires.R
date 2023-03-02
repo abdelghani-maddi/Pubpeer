@@ -27,8 +27,7 @@ library(sjmisc)
 library(regexplain)
 library(gtsummary)
 library(igraph)
-library(rJava)
-library(xlsx)
+library(openxlsx2)
 
 # install.packages('remotes')
 # remotes::install_github("gadenbuie/regexplain")
@@ -163,7 +162,7 @@ f2 <- factor(t2$sit_harm) |>
   questionr::freq()
 f_a_analyser <- data.frame(rownames(f2),f2$n,f2$`val%`)
 names(f_a_analyser) <- c("site", "nbr_apparitions", "part")
-
+write_xlsx(f_a_analyser, "f_a_analyser.xlsx")
 
 # Calculer les fréquences pour avoir une idée de la distribution des sites
 f <- factor(new_df$sit_harm) |>
