@@ -43,7 +43,7 @@ db <- 'SKEPTISCIENCE'  #provide the name of your db
 host_db <- 'localhost' # server
 db_port <- '5433'  # port DBA
 db_user <- 'postgres' # nom utilisateur  
-db_password <- 'Maroua1912'
+db_password <- '********'
 con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port, user=db_user, password=db_password)  
 # Test connexion
 dbListTables(con) 
@@ -142,7 +142,7 @@ t2$sit_harm[is.na(t2$sit_harm)] <- t2$site[is.na(t2$sit_harm)]
 t2$site <- factor(t2$site)
 t2$sit_harm <- factor(t2$sit_harm)  
 
-dbWriteTable(con, "data_sites_harmo", t2)
+#dbWriteTable(con, "data_sites_harmo", t2)
 
 # exclure du dataframe toutes les lignes (sites) dont on sait qu'ils ne sont pas des sites de discussion
 

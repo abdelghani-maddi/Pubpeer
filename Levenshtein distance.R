@@ -7,7 +7,7 @@ v <- as.character(t2$sit_harm)
 levenshtein_distance <- function(s1, s2) {
   m <- nchar(s1)
   n <- nchar(s2)
-  d <- matrix(0, n + 1, m + 1)
+  d <- matrix(0, n + 1, m + 1) 
   d[1, ] <- 0:m
   d[, 1] <- 0:n
   for (j in 2:(m + 1)) {
