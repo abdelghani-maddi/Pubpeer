@@ -1,7 +1,7 @@
 ## Calcul de la distance Levenshtein pour regrouper les sites qui sont les mêmes -----
 
 # Créer un vecteur textuel
-v <- as.character(t2$sit_harm)
+v <- as.character(f_a_analyser$site)
 
 # Définir une fonction pour calculer la distance de Levenshtein entre deux chaînes
 levenshtein_distance <- function(s1, s2) {

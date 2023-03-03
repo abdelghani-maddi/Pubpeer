@@ -44,15 +44,18 @@ db <- 'SKEPTISCIENCE'  #provide the name of your db
 host_db <- 'localhost' # server
 db_port <- '5433'  # port DBA
 db_user <- 'postgres' # nom utilisateur  
-db_password <- '********'
-con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port, user=db_user, password=db_password)  
+db_password <- 'Maroua1912'
+con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port, user=db_user, password=db_password) 
 # Test connexion
 dbListTables(con) 
 
 ### Récupération des données ----
 
-reqsql= paste('select inner_id, publication, html as comm from data_commentaires')
+reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires')
 data_comm = dbGetQuery(con,reqsql)
+
+# Transformer le format de la date du commentaire
+data_comm$date_com <- as.Date.character(data_comm$date_com)
 
 ### Récupération des commentaires avec liens hypertextes ----
 # Creer la liste des liens qui se trouvent dans les commentaires gardant 
@@ -163,13 +166,6 @@ f2 <- factor(t2$sit_harm) |>
 f_a_analyser <- data.frame(rownames(f2),f2$n,f2$`val%`)
 names(f_a_analyser) <- c("site", "nbr_apparitions", "part")
 write_xlsx(f_a_analyser, "f_a_analyser.xlsx")
-
-# Calculer les fréquences pour avoir une idée de la distribution des sites
-f <- factor(new_df$sit_harm) |>
-  fct_infreq() |> 
-  questionr::freq()
-
-f_a_analyser <- data.frame(rownames(f),f)
 
 
 ## Je me rends compte qu'il faut garder le lien original tel que cité dans le commentaire
