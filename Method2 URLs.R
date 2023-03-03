@@ -73,6 +73,7 @@ urls_parses <- url_parse(df_split$urls)
 df <- merge(df_split, urls_parses, by = "row.names", all = F)
 
 write_xlsx(df, "urls_commentaires.xlsx")
+write_csv(df, "urls_comm.csv")
 
 
 ##
