@@ -84,34 +84,76 @@ df_split <- unnest(URL_var, urls)
 urls_parses <- url_parse(df_split$urls) 
 df <- merge(df_split, urls_parses, by = "row.names", all = F)
 
-# write_xlsx(df, "urls_commentaires.xlsx")
-# write_csv(df, "urls_comm.csv")
-
 # faire un select distinct
-
-urls_v1 <- data.frame(df$Row.names,df$publication,df$inner_id,df$date_com,df[,7:14])
+urls_v1 <- data.frame(df$Row.names,df$publication,df$inner_id,df$date_com,df[,7:13])
 names(urls_v1)[1:4] <- c("rowname","publication","inner_id","date_com")
+urls_unique <- subset(urls_v1, !duplicated(paste(publication, inner_id, urls)))
 
+# Utiliser la fonction ave() pour ajouter une colonne avec une ### séquence ### numérique qui se réinitialise selon id et suit l'ordre des rownames
+urls_unique <- urls_unique[order(urls_unique$publication, as.numeric(urls_unique$rowname)),]
+urls_unique$sequence <- ave(urls_unique$rowname, urls_unique$publication, FUN = function(x) seq_along(x))
+
+# Calcul de la fréquence des sites pour avoir une idée plus précise
+f <- factor(urls_unique$domain) |>
+  fct_infreq() |> 
+  questionr::freq()
+freqsit <- data.frame(rownames(f),f)
+names(freqsit) = c("site","nb","part","freq")
+
+# Typologie des sites : tableau de correspondance
+class_sites <- readxl::read_xlsx("classification sites2.xlsx", sheet = "Feuil3", col_names = TRUE)
+
+# Créer une nouvelle colonne "typo" basée sur le tableau de correspondance
+urls_unique$typo <- NA  # Initialiser la colonne à NA
+for (i in seq_along(class_sites$pattern)) {
+  site <- class_sites$pattern[i]
+  type <- class_sites$type[i]
+  urls_unique$typo[str_detect(urls_unique$domain, fixed(site))] <- type
+}
+
+# Calcul de la fréquence des sites pour avoir une idée plus précise
+f <- factor(urls_unique$typo[urls_unique$typo != "pubpeer" & urls_unique$typo != "Editeur - revue"]) |>
+  fct_infreq() |> 
+  questionr::freq()
+freqsit <- data.frame(rownames(f),f)
+names(freqsit) = c("site","nb","part","freq")
+
+
+# Vecteur de correspondance
+corresp <- class_sites$pattern
+code <- class_sites$type
+
+# Fonction de recodage
+recodage <- function(x, corresp, code) {
+  for (i in seq_along(corresp)) {
+    if (!any(is.na(urls_unique$domain))) {
+      for (i in seq_along(corresp)) {
+        mask <- str_detect(urls_unique$domain, fixed(corresp[i]))
+        urls_unique$code[mask] <- code[i]
+      }
+    }
+  }
+  return(NA)
+}
+
+# Application de la fonction sur la colonne de texte
+urls_unique$code <- sapply(urls_unique$domain, recodage, corresp = corresp, code = code)
+
+
+
+
+
+
+## Commandes pas executées, mais c'est à faire pour nettoyer et récupérer les quelques 600 URLs mal parsés
 a <- subset(urls_v1, urls_v1$server=="")
 # Extraire le protocole (http://)
 protocole <- gsub("^(.*://).*", "\\1", a$urls)
-
 # Extraire le nom de domaine (www.example.com)
 domaine <- gsub("^.*://([^/]+).*", "\\1", a$urls)
-
 # Extraire le chemin (/path/to/)
 chemin <- gsub("^.*://[^/]+(/.*/).*", "\\1", a$urls)
-
 # Extraire le nom de fichier (file.html)
 nom_fichier <- gsub("^.*://[^/]+/.*/(.*)$", "\\1", a$urls)
-
 b <- data.frame(protocole,domaine,chemin)
-
-
-urls_vf <- urls_v1[,-1] %>%
-  unique()
-
-f2 <- factor(urls_vf$server) |>
-  fct_infreq() |> 
-  questionr::freq()
+#####
 
