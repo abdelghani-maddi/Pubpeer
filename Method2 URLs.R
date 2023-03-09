@@ -103,7 +103,7 @@ names(freqsit) = c("site","nb","part","freq")
 # Typologie des sites : tableau de correspondance
 class_sites <- readxl::read_xlsx("classification sites2.xlsx", sheet = "Feuil3", col_names = TRUE)
 
-# Créer une nouvelle colonne "typo" basée sur le tableau de correspondance
+# Créer une nouvelle colonne "typo" basée sur le tableau de correspondance  
 urls_unique$typo <- NA  # Initialiser la colonne à NA
 for (i in seq_along(class_sites$pattern)) {
   site <- class_sites$pattern[i]
