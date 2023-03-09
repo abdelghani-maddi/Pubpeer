@@ -111,33 +111,104 @@ for (i in seq_along(class_sites$pattern)) {
   urls_unique$typo[str_detect(urls_unique$domain, fixed(site))] <- type
 }
 
-# Calcul de la fréquence des sites pour avoir une idée plus précise
-f <- factor(urls_unique$typo[urls_unique$typo != "pubpeer" & urls_unique$typo != "Editeur - revue"]) |>
+
+
+# Parcourir chaque élément du vecteur class_sites$pattern dans l'ordre d'apparition
+for (i in seq_along(class_sites$pattern)) {
+  site <- class_sites$pattern[i]
+  type <- class_sites$type[i]
+  
+  # Trouver les éléments de urls_unique$domain qui correspondent à site
+  matches <- grepl(site, urls_unique$domain)
+  
+  # Ne mettre à jour la colonne typo que pour les éléments non encore typés et correspondant à site
+  urls_unique$typo[matches & is.na(urls_unique$typo)] <- type
+}
+
+
+
+
+
+
+
+# afficher les résultats
+print(urls_unique)
+
+
+
+
+
+
+
+
+# Jointure avec le dataframe d'origine
+result <- merge(df, urls_unique, by = "domain", all.x = TRUE)
+
+# Remplacement des valeurs "NA" par "autre"
+result$typo[is.na(result$typo)] <- "autre"
+
+# Affichage du résultat
+result
+
+
+
+## Recoding urls_unique$typo
+urls_unique$typo <- factor(urls_unique$typo) %>%
+  fct_explicit_na("Autre")
+
+
+# Calcul de la fréquence des sites "autre" pour avoir une idée plus précise
+f <- factor(urls_unique$domain[urls_unique$typo=="Autre"]) |>
+  fct_infreq() |> 
+  questionr::freq()
+freqsit <- data.frame(rownames(f),f)
+names(freqsit) = c("site","nb","part","freq")
+
+# Calcul de la fréquence des sites "autre" pour avoir une idée plus précise
+f <- factor(urls_unique$typo) |>
   fct_infreq() |> 
   questionr::freq()
 freqsit <- data.frame(rownames(f),f)
 names(freqsit) = c("site","nb","part","freq")
 
 
-# Vecteur de correspondance
-corresp <- class_sites$pattern
-code <- class_sites$type
+# Création du dataframe de données
+df <- urls_unique
 
-# Fonction de recodage
-recodage <- function(x, corresp, code) {
+# Vecteur de correspondance
+corresp <- class_sites
+
+
+# Fonction pour obtenir le code correspondant à partir de la chaîne de caractères
+get_code <- function(x) {
   for (i in seq_along(corresp)) {
-    if (!any(is.na(urls_unique$domain))) {
-      for (i in seq_along(corresp)) {
-        mask <- str_detect(urls_unique$domain, fixed(corresp[i]))
-        urls_unique$code[mask] <- code[i]
-      }
+    if (str_detect(x, fixed(corresp[i]))) {
+      code <- str_extract(corresp[i], "\\w+")
+      return(code)
     }
   }
   return(NA)
 }
 
-# Application de la fonction sur la colonne de texte
-urls_unique$code <- sapply(urls_unique$domain, recodage, corresp = corresp, code = code)
+# Ajout de la colonne "code"
+df <- df %>% mutate(code = map_chr(url, get_code))
+
+# Affichage du résultat
+df
+
+
+
+
+
+
+
+
+# Calcul de la fréquence des sites pour avoir une idée plus précise
+f <- factor(urls_unique$typo[urls_unique$typo != "pubpeer" & urls_unique$typo != "Editeur - revue"]) |>
+  fct_infreq() |> 
+  questionr::freq()
+freqsit <- data.frame(rownames(f),f)
+names(freqsit) = c("site","nb","part","freq")
 
 
 
