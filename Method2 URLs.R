@@ -77,8 +77,6 @@ for (i in 1:nrow(URL_var)) {
   URL_var$urls[i] <- extracted_url
 }
 
-# "(?i)\\b((?:https?://|www\\d{0,3}[.]|[a-z0-9.\\-]+[.][a-z]{2,4}/)(?:[^\\s()<>]+|\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\))+(?:\\(([^\\s()<>]+|(\\([^\\s()<>]+\\)))*\\)|[^\\s`!()\\[\\]{};:'\".,<>?«»“”‘’]))"
-
 # séparer les URLs en autant de lignes
 df_split <- unnest(URL_var, urls)
 urls_parses <- url_parse(df_split$urls) 
@@ -100,18 +98,11 @@ f <- factor(urls_unique$domain) |>
 freqsit <- data.frame(rownames(f),f)
 names(freqsit) = c("site","nb","part","freq")
 
-# Typologie des sites : tableau de correspondance
+# Typologie des sites : tableau de correspondance ----
 class_sites <- readxl::read_xlsx("classification sites2.xlsx", sheet = "Feuil3", col_names = TRUE)
 
 # Créer une nouvelle colonne "typo" basée sur le tableau de correspondance  
 urls_unique$typo <- NA  # Initialiser la colonne à NA
-for (i in seq_along(class_sites$pattern)) {
-  site <- class_sites$pattern[i]
-  type <- class_sites$type[i]
-  urls_unique$typo[str_detect(urls_unique$domain, fixed(site))] <- type
-}
-
-
 
 # Parcourir chaque élément du vecteur class_sites$pattern dans l'ordre d'apparition
 for (i in seq_along(class_sites$pattern)) {
@@ -125,31 +116,9 @@ for (i in seq_along(class_sites$pattern)) {
   urls_unique$typo[matches & is.na(urls_unique$typo)] <- type
 }
 
-
-
-
-
-
-
-# afficher les résultats
-print(urls_unique)
-
-
-
-
-
-
-
-
-# Jointure avec le dataframe d'origine
-result <- merge(df, urls_unique, by = "domain", all.x = TRUE)
-
-# Remplacement des valeurs "NA" par "autre"
-result$typo[is.na(result$typo)] <- "autre"
-
-# Affichage du résultat
-result
-
+# Supprimer les lignes contenant la chaîne "http" (liées à un problème de pasing)
+urls_unique <- urls_unique %>% filter(!grepl("http", domain))
+urls_unique <- urls_unique[grep("\\.", urls_unique$domain), ]
 
 
 ## Recoding urls_unique$typo
@@ -165,42 +134,14 @@ freqsit <- data.frame(rownames(f),f)
 names(freqsit) = c("site","nb","part","freq")
 
 # Calcul de la fréquence des sites "autre" pour avoir une idée plus précise
-f <- factor(urls_unique$typo) |>
+f2 <- factor(urls_unique$typo[urls_unique$typo!="pubpeer"]) |>
   fct_infreq() |> 
   questionr::freq()
-freqsit <- data.frame(rownames(f),f)
-names(freqsit) = c("site","nb","part","freq")
+freqsit2 <- data.frame(rownames(f2),f2)
+names(freqsit2) = c("site","nb","part","freq")
 
-
-# Création du dataframe de données
-df <- urls_unique
-
-# Vecteur de correspondance
-corresp <- class_sites
-
-
-# Fonction pour obtenir le code correspondant à partir de la chaîne de caractères
-get_code <- function(x) {
-  for (i in seq_along(corresp)) {
-    if (str_detect(x, fixed(corresp[i]))) {
-      code <- str_extract(corresp[i], "\\w+")
-      return(code)
-    }
-  }
-  return(NA)
-}
-
-# Ajout de la colonne "code"
-df <- df %>% mutate(code = map_chr(url, get_code))
-
-# Affichage du résultat
-df
-
-
-
-
-
-
+## ecrire la table sur Postgresql pour calculer les cooccurrences
+dbWriteTable(con, "data_urls_comm", urls_unique)
 
 
 # Calcul de la fréquence des sites pour avoir une idée plus précise
@@ -212,7 +153,19 @@ names(freqsit) = c("site","nb","part","freq")
 
 
 
+# Calcul de la fréquence des sites pour avoir une idée plus précise
+f <- factor(urls_unique$domain[urls_unique$typo == "Médias"]) |>
+  fct_infreq() |> 
+  questionr::freq()
+freqmed <- data.frame(rownames(f),f)
+names(freqsit) = c("site","nb","part","freq")
 
+# Calcul de la fréquence des sites pour avoir une idée plus précise
+f <- factor(urls_unique$domain[urls_unique$typo == "Réseau social"]) |>
+  fct_infreq() |> 
+  questionr::freq()
+freqresau <- data.frame(rownames(f),f)
+names(freqsit) = c("site","nb","part","freq")
 
 
 ## Commandes pas executées, mais c'est à faire pour nettoyer et récupérer les quelques 600 URLs mal parsés
