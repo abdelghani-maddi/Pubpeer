@@ -88,6 +88,7 @@ create table pays_lib
 				 CSV HEADER ENCODING 'UTF8' QUOTE '\"' ESCAPE '''';""
 */
 
+
 /* Calcul du fractionnelent géographique */
 drop table data_pays_frac_geo;
 create table data_pays_frac_geo as
@@ -489,12 +490,13 @@ select distinct site as site_1
 
 
 
+drop table coocurrences_typ_sites;
 create table coocurrences_typ_sites as 
 select distinct x.site_1,
        y.site_2,
 	   count (distinct x.publication)
-	from  (select publication, type_sit as site_1 from public.data_type_sites) x,
-		  (select publication, type_sit as site_2 from public.data_type_sites) y
+	from  (select publication, typo as site_1 from public.data_urls_comm) x,
+		  (select publication, typo as site_2 from public.data_urls_comm) y
 		
 		where x.publication = y.publication
 		
@@ -503,3 +505,28 @@ select distinct x.site_1,
 					
 					order by 3 desc
 ;
+
+
+-- drop table coocu_typ_sites_media;
+-- create table coocu_typ_sites_media as 
+select distinct x.site_1,
+       y.site_2,
+	   count (distinct x.publication)
+	from  (select publication, domain as site_1 
+		   from public.data_urls_comm
+		   where typo = 'Médias'
+		  ) x,
+		  (select publication, domain as site_2 
+		   from public.data_urls_comm
+		   where typo = 'Médias'
+		  ) y
+		
+		where x.publication = y.publication 
+		
+		   group by x.site_1,
+       				y.site_2
+					
+					order by 3 desc
+;
+
+

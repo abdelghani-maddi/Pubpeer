@@ -141,7 +141,7 @@ freqsit2 <- data.frame(rownames(f2),f2)
 names(freqsit2) = c("site","nb","part","freq")
 
 ## ecrire la table sur Postgresql pour calculer les cooccurrences
-dbWriteTable(con, "data_urls_comm", urls_unique)
+# dbWriteTable(con, "data_urls_comm", urls_unique)
 
 
 # Calcul de la fréquence des sites pour avoir une idée plus précise
