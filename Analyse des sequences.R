@@ -13,6 +13,7 @@ library(ade4)
 library(explor)
 library(FactoMineR)
 library(factoextra)
+library(labelled)
 
 # Connexion ----
 
@@ -34,6 +35,9 @@ data_comm = dbGetQuery(con,reqsql)
 
 reqsql2= paste('select * from data_urls_comm')
 data_urls = dbGetQuery(con,reqsql2)
+df <- select(data_urls, c("comm", "date_com.y", "annee", "inner_id", "publication", "urls", "scheme", "domain", "port", "path", "parameter", "fragment", "sequence", "typo"))
+var_label(df) <- c("commentaire", "date du commentaire", "année du commentaire", "identifiant du commentaire", "identifiant de la publication", 
+                   "urls entiers", "schéma", "domaine", "port", "chemin", "filtres appliqués", "fragment", "séquence", "Typologie")
 
 ## Recuperation de la date
 data_urls <- merge(data_urls, data_comm, by = c("inner_id", "publication"), all.x = TRUE)
@@ -188,3 +192,9 @@ fviz_pca_ind (res.pca, pointsize = "cos2",
               pointshape = 21, fill = "#E7B800",
               repel = TRUE # Évite le chevauchement de texte
 )
+
+
+
+res.hcpc <- HCPC(res.pca, graph = FALSE)
+plot(res.hcpc, choice = "3D.map")
+
