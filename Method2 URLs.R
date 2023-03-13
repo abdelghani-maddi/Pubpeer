@@ -152,7 +152,6 @@ freqsit <- data.frame(rownames(f),f)
 names(freqsit) = c("site","nb","part","freq")
 
 
-
 # Calcul de la fréquence des sites pour avoir une idée plus précise
 f <- factor(urls_unique$domain[urls_unique$typo == "Médias"]) |>
   fct_infreq() |> 

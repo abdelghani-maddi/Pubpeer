@@ -35,9 +35,6 @@ data_comm = dbGetQuery(con,reqsql)
 
 reqsql2= paste('select * from data_urls_comm')
 data_urls = dbGetQuery(con,reqsql2)
-df <- select(data_urls, c("comm", "date_com.y", "annee", "inner_id", "publication", "urls", "scheme", "domain", "port", "path", "parameter", "fragment", "sequence", "typo"))
-var_label(df) <- c("commentaire", "date du commentaire", "année du commentaire", "identifiant du commentaire", "identifiant de la publication", 
-                   "urls entiers", "schéma", "domaine", "port", "chemin", "filtres appliqués", "fragment", "séquence", "Typologie")
 
 ## Recuperation de la date
 data_urls <- merge(data_urls, data_comm, by = c("inner_id", "publication"), all.x = TRUE)
@@ -51,6 +48,11 @@ data_urls <- data_urls %>% mutate(annee = case_when(
   annee == 4019 ~ 2019,
   TRUE ~ annee
 ))
+
+## Select variables d'intérêt
+data_urls <- select(data_urls, c("comm.x", "date_com.y", "annee", "inner_id", "publication", "urls", "scheme", "domain", "port", "path", "parameter", "fragment", "sequence", "typo"))
+var_label(data_urls) <- c("Commentaire", "Date du commentaire", "Année du commentaire", "Identifiant du commentaire", "Identifiant de la publication", 
+                          "Urls entiers", "Schéma", "Domaine", "Port", "Chemin", "Filtres appliqués", "Fragment", "Séquence", "Typologie")
 
 
 # Transformer le format de la date du commentaire
