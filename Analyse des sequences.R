@@ -30,40 +30,8 @@ dbListTables(con)
 
 ### Récupération des données ----
 
-reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires')
-data_comm = dbGetQuery(con,reqsql)
-
 reqsql2= paste('select * from data_urls_comm')
 data_urls = dbGetQuery(con,reqsql2)
-
-## Recuperation de la date
-data_urls <- merge(data_urls, data_comm, by = c("inner_id", "publication"), all.x = TRUE)
-
-# Transformer le format de la date du commentaire
-data_urls$annee <- strptime(data_urls$date_com.y, format = "%d/%m/%Y %H:%M") %>%
-  year() + 2000
-# Pour 3 publications la date n'est pas bien formatée. Correction :
-# Changer la valeur de la colonne ville
-data_urls <- data_urls %>% mutate(annee = case_when(
-  annee == 4019 ~ 2019,
-  TRUE ~ annee
-))
-
-## Select variables d'intérêt
-data_urls <- select(data_urls, c("comm.x", "date_com.y", "annee", "inner_id", "publication", "urls", "scheme", "domain", "port", "path", "parameter", "fragment", "sequence", "typo"))
-var_label(data_urls) <- c("Commentaire", "Date du commentaire", "Année du commentaire", "Identifiant du commentaire", "Identifiant de la publication", 
-                          "Urls entiers", "Schéma", "Domaine", "Port", "Chemin", "Filtres appliqués", "Fragment", "Séquence", "Typologie")
-
-
-# Transformer le format de la date du commentaire
-data_comm$annee <- strptime(data_comm$date_com, format = "%d/%m/%Y %H:%M") %>%
-  year() + 2000
-# Pour 3 publications la date n'est pas bien formatée. Correction :
-# Changer la valeur de la colonne ville
-data_comm <- data_comm %>% mutate(annee = case_when(
-  annee == 4019 ~ 2019,
-  TRUE ~ annee
-))
 
 ## Quelques résultats bizarres
 # freq(data_urls$annee, total = T)
@@ -141,32 +109,43 @@ df_quartiles <- df %>%
 df_pivot <- df_quartiles[,c(1,2,4)] %>% 
   pivot_wider(names_from = annee_rec, values_from = quartile, values_fill = 0)
 
+###
 
-#labels <- c("Q1", "Q2", "Q3", "Q4")
-seq <- seqdef(df_pivot)
+# Convertir les données en format de séquence
+sequences <- as.matrix(df_pivot[,2:4])
+# Supprimer les valeurs manquantes
+sequences[is.na(sequences)] <- "-"
+
+# définir les lables pour les différents états
+labels <- c("Q1", "Q2", "Q3", "Q4")
+seq <- seqdef(sequences, states = labels)
 couts <- seqsubm(seq, method = "CONSTANT", cval = 2)
 seq.om <- seqdist(seq, method = "OM", indel = 1, sm = couts)
 seq.dist <- hclust(as.dist(seq.om), method = "ward.D2")
 plot(as.dendrogram(seq.dist), leaflab = "none")
-plot(sort(seq.dist$height, decreasing = TRUE)[1:20], type = "s", xlab = "nb de classes", ylab = "inertie")
+plot(sort(seq.dist$height, decreasing = TRUE)[1:13], type = "s", xlab = "nb de classes", ylab = "inertie")
 
 nbcl <- 4
 seq.part <- cutree(seq.dist, nbcl)
 seq.part <- factor(seq.part, labels = paste("classe", 1:nbcl, sep = "."))
 
-seqdplot(seq, group = seq.part, xtlab = 13:21, border = NA)
-seqIplot(seq, group = seq.part, xtlab = 14:50, space = 0, border = NA, yaxis = FALSE)
+seqdplot(seq, group = seq.part, xtlab = c("2013-2015", "2016-2018","2019-2021"), border = NA)
+seqIplot(seq, group = seq.part, xtlab = c("2013-2015", "2016-2018","2019-2021"), space = 0, border = NA, yaxis = FALSE)
+seq_heatmap(seq, seq.dist, labCol = c("2013-2015", "2016-2018","2019-2021"), cexCol = 0.9)
 
-seq_heatmap(seq, seq.dist, labCol = 13:50)
-seqmsplot(seq, group = seq.part, xtlab = 14:50, main = "classe")
+
+seqfplot(seq, group = seq.part)
+seqmsplot(seq, group = seq.part, xtlab = c("2013-2015", "2016-2018","2019-2021"), main = "")
 seqmtplot(seq, group = seq.part)
-seqHtplot(seq, group = seq.part, xtlab = 14:50)
+seqrplot(seq, group = seq.part, dist.matrix = seq.om, criterion = "dist")
+seqHtplot(seq, group = seq.part, xtlab = c("2013-2015", "2016-2018","2019-2021"))
 
-freq(seq.part)
+
+
+
 
 ## ACP
 df_pivot <- mutate_if(df_pivot, is.integer, as.numeric)
-
 row.names(df_pivot) <- df_pivot$typo
 
 t <- df_pivot[,2:4] %>%
@@ -175,6 +154,8 @@ row.names(t) <- df_pivot$typo
 str(t)
 
 res.pca <- PCA(t)
+explor::explor(res.pca)
+
 
 ind <- get_pca_ind(res.pca)
 # Coordonnées des individus
@@ -199,4 +180,5 @@ fviz_pca_ind (res.pca, pointsize = "cos2",
 
 res.hcpc <- HCPC(res.pca, graph = FALSE)
 plot(res.hcpc, choice = "3D.map")
+
 
