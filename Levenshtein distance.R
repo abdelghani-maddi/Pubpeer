@@ -1,7 +1,17 @@
 ## Calcul de la distance Levenshtein pour regrouper les sites qui sont les mêmes -----
 
 # Créer un vecteur textuel
-v <- as.character(f_a_analyser$site)
+v <- unique(as.character(data_urls$domain[data_urls$typo=="Médias"]))
+# Harmoniser un peu pour éviter d'embouriller Levenshtein 
+for (i in 1:length(v)) {
+  v[i] <- gsub(".com", "", v[i])
+  v[i] <- gsub(".org", "", v[i])
+  v[i] <- gsub("www.", "", v[i])
+  v[i] <- gsub("wordpress", "", v[i])
+  v[i] <- gsub("blogspot", "", v[i])
+  v[i] <- gsub("blog", "", v[i])
+  v[i] <- gsub(".files", "", v[i])
+}
 
 # Définir une fonction pour calculer la distance de Levenshtein entre deux chaînes
 levenshtein_distance <- function(s1, s2) {
@@ -51,16 +61,17 @@ groups
 ids <- seq_along(groups)
 
 # Créer un dataframe à partir de la liste groups et des identifiants
-df <- data.frame(id = rep(ids, lengths(groups)),
+df_levensh <- data.frame(id = rep(ids, lengths(groups)),
                  element = unlist(groups))
 
 # Afficher le dataframe 
-df
+df_levensh
 
+write_xlsx(df_levensh, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/grp_levenshtein.xlsx")
 
 
 # Calculer les fréquences pour avoir une idée de la distribution des sites
-f <- factor(df$element) |>
+f <- factor(df_levensh$id) |>
   fct_infreq() |> 
   questionr::freq()
 
