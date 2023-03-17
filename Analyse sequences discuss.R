@@ -18,7 +18,7 @@ library(labelled)
 library(openxlsx)
 library(officer)
 library(gtsummary)
-
+library(data.table)
 # Connexion ----
 
 con<-dbConnect(RPostgres::Postgres())
@@ -86,7 +86,7 @@ data_max_sequence$annee_rec <- data_max_sequence$annee %>%
 
 
 # utiliser la fonction aggregate pour calculer la moyenne, group by domain et annee
-data <- subset(data_max_sequence, max_sequence>1 & data_max_sequence$nb_comm>1)
+data <- subset(data_max_sequence, max_sequence>1 & data_max_sequence$nb_comm>2)
 
 
 # Calcul de la position des liens par rapport aux commentaires
@@ -96,11 +96,60 @@ data <- data %>%
          position_comm = match(inner_id, unique(inner_id))/nb_comm)
 
 
+## Cutting data_comm_url$nb_comm into data_comm_url$nb_comm_rec
+data$nb_comm_rec <- cut(data$nb_comm,
+                        include.lowest = TRUE,
+                        right = FALSE,
+                        dig.lab = 4,
+                        breaks = c(2, 4, 10, 291)
+)
+
+# Regrouper les données par identifiant "publication" et calculer les quartiles
+data <- data %>%
+  #subset(., nb_comm_rec == "[10,291]") %>%
+  #select(publication, typo, annee_rec, position_comm) %>%
+  #unique() %>%
+  group_by(publication) %>%
+  mutate(quartile_discuss = case_when(ntile(position_comm, 4) == 1 ~ "Q1",
+                               ntile(position_comm, 4) == 2 ~ "Q2",
+                               ntile(position_comm, 4) == 3 ~ "Q3",
+                               ntile(position_comm, 4) == 4 ~ "Q4"))
+
+# Calculer la position de chaque quartile en fonction de son ordre d'apparition dans chaque groupe de données "publication"
+data <- data %>%
+  group_by(publication) %>%
+  mutate(rank_discuss = dense_rank(quartile_discuss),
+         position = 1:n())
+
+# Calculer la position de chaque valeur de la colonne "typo" en fonction de la colonne "rank_discuss"
+data <- data %>%
+  group_by(publication, rank_discuss) %>%
+  mutate(position_typo = 1:n(),
+         quartile_position_typo = case_when(ntile(position_typo, 4) == 1 ~ "Q1",
+                                            ntile(position_typo, 4) == 2 ~ "Q2",
+                                            ntile(position_typo, 4) == 3 ~ "Q3",
+                                            ntile(position_typo, 4) == 4 ~ "Q4"))
+
+
+
+# Calculer la moyenne de la colonne "position_comm" en fonction des colonnes "typo" et "annee_rec"
+moyennes <- aggregate(data_quartile$position_comm, by = list(data_quartile$typo, data_quartile$annee_rec), mean)
+# Calculer la médiane de la colonne "position_comm" en fonction des colonnes "typo" et "annee_rec"
+mediane <- aggregate(data_quartile$position_comm, by = list(data_quartile$typo, data_quartile$annee_rec), median)
+# Calculer le min de la colonne "position_comm" en fonction des colonnes "typo" et "annee_rec"
+min <- aggregate(data_quartile$position_comm, by = list(data_quartile$typo, data_quartile$annee_rec), min)
+# Calculer le max de la colonne "position_comm" en fonction des colonnes "typo" et "annee_rec"
+max <- aggregate(data_quartile$position_comm, by = list(data_quartile$typo, data_quartile$annee_rec), max)
 # Distribution du nombre de liens par nombre de commentaires
 data_count <- data %>%
   group_by(nb_comm) %>%
   summarise(count = n_distinct(urls))
 
+# Donner des noms significatifs aux colonnes du résultat
+colnames(moyennes) <- c("typo", "annee_rec", "moy_position_comm")
+
+# Afficher le résultat
+moyennes
 
 
 
@@ -109,23 +158,27 @@ rm(list = ls(pattern = "^data_"))
 
 
 # Exporter les données pour envoyer aux collègues ----
-write_excel_csv2(data_max_sequence, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/donnees_URLS.csv")
+write_excel_csv2(data, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/donnees_URLS.csv")
 # Calcul de la fréquence des sites pour avoir une idée plus précise
-f <- factor(data_max_sequence$domain[data_max_sequence$typo == "Autre"]) |>
+f <- factor(data$domain[data$typo == "Autre"]) |>
   fct_infreq() |> 
   questionr::freq()
 frequAutre <- data.frame(rownames(f),f[,1:2])
 names(frequAutre) = c("site","Nombre_de_liens","Part_dans_non_classe")
 write.xlsx(frequAutre, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/URLS_non_classees.xlsx")
 
+# Calcul de la fréquence des sites pour avoir une idée plus précise
+f_media <- factor(data$domain[data$typo == "Médias"]) |>
+  fct_infreq() |> 
+  questionr::freq()
+frequ_media <- data.frame(rownames(f_media),f_media[,1:2])
+names(frequ_media) = c("site","Nombre_de_liens","Part_dans_medias")
+write.xlsx(frequ_media, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/URLS_media.xlsx")
 
-## Cutting data_comm_url$nb_comm into data_comm_url$nb_comm_rec
-data$nb_comm_rec <- cut(data$nb_comm,
-                                 include.lowest = TRUE,
-                                 right = FALSE,
-                                 dig.lab = 4,
-                                 breaks = c(2, 4, 10, 291)
-)
+
+f_nb_com <- factor(data$nb_comm) |>
+  fct_infreq() |> 
+  questionr::freq()
 
 # Analyse des séquences ----
 data_uniq <- data[data$nb_comm_rec == "[10,291]", c("inner_id", "typo", "annee_rec", "position_comm")] %>% 
@@ -135,9 +188,9 @@ data_uniq <- data[data$nb_comm_rec == "[10,291]", c("inner_id", "typo", "annee_r
 df <- aggregate(position ~ typo + annee_rec, data = data, mean) 
 df <- aggregate(position_comm ~ typo + annee_rec, data = data_uniq, mean) 
 
-# Transformer les moyennes en quartiles
-df_quartiles <- df %>%
-  mutate(quartile = ntile(position_comm, 4))
+# # Transformer les moyennes en quartiles
+# df_quartiles <- df %>%
+#   mutate(quartile = ntile(position_comm, 4))
 
 
 # Pivoter l'annee pour n'analyse des séquences
