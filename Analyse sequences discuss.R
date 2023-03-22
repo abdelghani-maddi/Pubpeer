@@ -87,74 +87,74 @@ data_max_sequence$annee_rec <- data_max_sequence$annee %>%
 
 # utiliser la fonction aggregate pour calculer la moyenne, group by domain et annee
 data <- subset(data_max_sequence, max_sequence>1 & data_max_sequence$nb_comm>2)
-
-
-# Calcul de la position des liens par rapport aux commentaires
-data <- data %>% 
-  group_by(publication) %>% 
-  mutate(nb_comm = n_distinct(inner_id),
-         position_comm = match(inner_id, unique(inner_id))/nb_comm)
-
-
-## Cutting data_comm_url$nb_comm into data_comm_url$nb_comm_rec
-data$nb_comm_rec <- cut(data$nb_comm,
-                        include.lowest = TRUE,
-                        right = FALSE,
-                        dig.lab = 4,
-                        breaks = c(2, 4, 10, 291)
-)
-
-# Regrouper les données par identifiant "publication" et calculer les quartiles
-data <- data %>%
-  #subset(., nb_comm_rec == "[10,291]") %>%
-  #select(publication, typo, annee_rec, position_comm) %>%
-  #unique() %>%
-  group_by(publication) %>%
-  mutate(quartile_discuss = case_when(ntile(position_comm, 4) == 1 ~ "Q1",
-                               ntile(position_comm, 4) == 2 ~ "Q2",
-                               ntile(position_comm, 4) == 3 ~ "Q3",
-                               ntile(position_comm, 4) == 4 ~ "Q4"))
-
-# Calculer la position de chaque quartile en fonction de son ordre d'apparition dans chaque groupe de données "publication"
-data <- data %>%
-  group_by(publication) %>%
-  mutate(rank_discuss = dense_rank(quartile_discuss),
-         position = 1:n())
-
-# Calculer la position de chaque valeur de la colonne "typo" en fonction de la colonne "rank_discuss"
-data <- data %>%
-  group_by(publication, rank_discuss) %>%
-  mutate(position_typo = 1:n(),
-         quartile_position_typo = case_when(ntile(position_typo, 4) == 1 ~ "Q1",
-                                            ntile(position_typo, 4) == 2 ~ "Q2",
-                                            ntile(position_typo, 4) == 3 ~ "Q3",
-                                            ntile(position_typo, 4) == 4 ~ "Q4"))
-
-
-
-# Calculer la moyenne de la colonne "position_comm" en fonction des colonnes "typo" et "annee_rec"
-moyennes <- aggregate(data_quartile$position_comm, by = list(data_quartile$typo, data_quartile$annee_rec), mean)
-# Calculer la médiane de la colonne "position_comm" en fonction des colonnes "typo" et "annee_rec"
-mediane <- aggregate(data_quartile$position_comm, by = list(data_quartile$typo, data_quartile$annee_rec), median)
-# Calculer le min de la colonne "position_comm" en fonction des colonnes "typo" et "annee_rec"
-min <- aggregate(data_quartile$position_comm, by = list(data_quartile$typo, data_quartile$annee_rec), min)
-# Calculer le max de la colonne "position_comm" en fonction des colonnes "typo" et "annee_rec"
-max <- aggregate(data_quartile$position_comm, by = list(data_quartile$typo, data_quartile$annee_rec), max)
-# Distribution du nombre de liens par nombre de commentaires
-data_count <- data %>%
-  group_by(nb_comm) %>%
-  summarise(count = n_distinct(urls))
-
-# Donner des noms significatifs aux colonnes du résultat
-colnames(moyennes) <- c("typo", "annee_rec", "moy_position_comm")
-
-# Afficher le résultat
-moyennes
-
-
-
 # Supressions de toutes les tables intermédiaires pour alleger l'espace
 rm(list = ls(pattern = "^data_"))
+
+
+# ajouter une colonne "position_lien" qui pend les valeurs "début" pour le minimum de 
+# la valeur de la variable "inner_id", et prend la valeur "fin" pour le maximum de la 
+# valeur de la variable "inner_id", et prend la valeur "milieu" pour le reste
+
+data <- data %>%
+  group_by(publication) %>%
+  mutate(position_lien = case_when(
+    inner_id == min(inner_id) ~ "début",
+    inner_id == max(inner_id) ~ "fin",
+    TRUE ~ "milieu"
+  )) %>%
+  ungroup()
+
+# Select des variables d'intérêt
+
+df <- data %>%
+  select(publication, typo, position_lien) %>%
+  unique()
+
+
+data_pivoted <- data %>%
+  pivot_wider(
+    names_from = position_lien,
+    values_from = typo,
+    names_prefix = "",
+    values_fn = length, # count number of occurrences of each combination
+    values_fill = 0
+  ) %>%
+  mutate(
+    début = ifelse(début > 0, 1, 0),
+    milieu = ifelse(milieu > 0, 1, 0),
+    fin = ifelse(fin > 0, 1, 0)
+  )
+
+
+##
+# Add row names to data_pivoted
+
+# Join data and data_pivoted by row name
+df <- left_join(data, data_pivoted) %>%
+  select(publication, inner_id, typo, début, milieu,fin)
+
+##
+
+df <- df %>%
+  group_by(publication, typo) %>%
+  summarise(début_sum = sum(début),
+            milieu_sum = sum(milieu),
+            fin_sum = sum(fin))
+
+df$typo <- factor(df$typo)
+
+sum_df <- df %>%
+  group_by(typo) %>%
+  summarise(début_sum = sum(début_sum),
+            milieu_sum = sum(milieu_sum),
+            fin_sum = sum(fin_sum))
+
+mean_df <- df %>%
+  group_by(typo) %>%
+  summarise(début_mean = mean(début_sum),
+            milieu_mean = mean(milieu_sum),
+            fin_mean = mean(fin_sum))
+
 
 
 # Exporter les données pour envoyer aux collègues ----
@@ -267,5 +267,159 @@ fviz_pca_ind (res.pca, pointsize = "cos2",
 
 res.hcpc <- HCPC(res.pca, graph = FALSE)
 plot(res.hcpc, choice = "3D.map")
+
+
+
+
+## Analyse profile des discussions en termes de commentaires ----
+
+extract <- data %>%
+  select (publication, annee, inner_id) %>%
+  unique() %>%
+  group_by(publication, annee) %>%
+  summarise(nb_com = n_distinct(inner_id))
+  
+# Pivoter l'annee pour n'analyse des séquences
+df_0 <- extract %>% 
+  pivot_wider(names_from = annee, values_from = nb_com, values_fill = 0) %>%
+  select(sort(colnames(.))) # modifier l'ordre des colonnes de l'annee la plus petite à la plus grande
+
+df_0$disc_nbr <-  paste0("disc ", seq(1, nrow(df_0)))
+
+# exculre 2 valeurs extrêmes, id_publication = 1728 et 2341
+`%not_in%` <- purrr::negate(`%in%`)
+df_0 <- subset(df_0, publication %not_in% c(57972, 60504, 63427, 73822))
+
+df <- df_0[,1:9]
+rownames(df) <- df_0$disc_nbr
+
+df <- df %>% mutate(nb_tot_com = rowSums(.[1:9]))
+df_prop <- df %>% mutate_all(.funs = list(~./nb_tot_com))
+  
+rownames(df_prop) <- df_0$disc_nbr
+
+
+## ACP
+library(ade4)
+
+acp <- dudi.pca(df_prop[1:9], scannf = FALSE, nf = 100)
+explor::explor(acp)
+
+# calcul de la matrice des distances de Gower
+library(cluster)
+md <- dist.dudi(acp)
+md_gower <- daisy(df_prop, metric = "gower")
+
+# calcul du dendrogramme
+arbre <- hclust(md, method = "ward.D2")
+arbre_gower <- hclust(md_gower, method = "ward.D2")
+
+# Représenter le dendrogramme
+plot(arbre, labels = FALSE)
+plot(arbre_gower, labels = FALSE)
+rect.hclust(arbre, 2, border = "red")
+rect.hclust(arbre, 5, border = "blue")
+
+# Une façon plus visuelle de représenter le dendogramme
+library(dendextend)
+color_branches(arbre_gower, k = 5) %>% ggplot(labels = FALSE)
+
+library(factoextra)
+fviz_dend(arbre_gower, k = 6, show_labels = FALSE, rect = TRUE)
+
+# saut d'inertie
+inertie <- sort(arbre$height, decreasing = TRUE)
+plot(inertie[1:20], type = "s")
+
+inertie_gower <- sort(arbre_gower$height, decreasing = TRUE)
+plot(inertie_gower[1:10], type = "s")
+
+# source(url("https://raw.githubusercontent.com/larmarange/JLutils/master/R/clustering.R"))
+# best.cutree(arbre_gower, graph = TRUE)
+# best.cutree(arbre, graph = TRUE)
+
+# déterminer le nombre de classes avec des indicateurs poussés
+library(WeightedCluster)
+as.clustrange(arbre, md) %>% plot()
+as.clustrange(arbre_gower, md_gower) %>% plot()
+
+
+# Caractériser les classes ----
+# df$typo <- cutree(arbre, 5) # fonction cutree : apratenance de chaque observation à chaque classe (ne pas modifier l'ordre des observations dans les différents objets !!!)
+df_prop$typo_gower <- cutree(arbre_gower, 4) # même chose pour gower
+
+acp2 <- FactoMineR::PCA(df_prop, quanti.sup = 11)
+explor::explor(acp2)
+
+fviz_pca_ind(acp2,
+             geom.ind = "point", # Montre les points seulement (mais pas le "text")
+             col.ind = as.character(df_prop$typo_gower), # colorer by groups
+             #palette = c("#00AFBB", "#E7B800", "#FC4E07"),
+             addEllipses = T, # Ellipses de concentration
+             legend.title = "Groups"
+)
+
+##
+
+df2 <- df_prop %>%
+  group_by(typo_gower) %>%
+  summarise("2013" = mean(`2013`),
+            "2014" = mean(`2014`),
+            "2015" = mean(`2015`),
+            "2016" = mean(`2016`),
+            "2017" = mean(`2017`),
+            "2018" = mean(`2018`),
+            "2019" = mean(`2019`),
+            "2020" = mean(`2020`),
+            "2021" = mean(`2021`))
+rownames(df2) <- c("groupe 1", "groupe 2","groupe 3", "groupe 4","groupe 5", "groupe 6")
+
+df_analyse <- subset(df_0, disc_nbr %in% c("disc 9180", "disc 2751", "disc 3956", "disc 6162", "disc 4672"))
+
+
+acp3 <- dudi.pca(df2[2:10], scannf = F, nf = Inf)
+explor::explor(acp3)
+md3 <- dist.dudi(acp3)
+md_gower3 <- daisy(df2, metric = "gower")
+
+# calcul du dendrogramme
+arbre3 <- hclust(md3, method = "ward.D2")
+arbre_gower3 <- hclust(md_gower3, method = "ward.D2")
+
+# Représenter le dendrogramme
+plot(arbre3, labels = T)
+plot(arbre_gower3, labels = F)
+
+df %>%
+  tbl_summary(
+  by ="typo_gower"
+  )
+
+
+expl_g4 <- subset(df_0, disc_nbr %in% c("disc 9203", "disc 8103", "disc 8079", "disc 7754", "disc 8113"))
+expl_g3 <- subset(df_0, disc_nbr %in% c("disc 5268", "disc 5473", "disc 5492", "disc 5192"))
+expl_g2 <- subset(df_0, disc_nbr %in% c("disc 4049", "disc 4034", "disc 3991", "disc 3838"))
+expl_g1 <- subset(df_0, disc_nbr %in% c("disc 3389", "disc 3387", "disc 3374", "disc 3304"))
+expl_g1B <- subset(df_0, disc_nbr %in% c("disc 2752", "disc 2964", "disc 4891", "disc 2913", "disc 2787"))
+expl <- subset(df_0, disc_nbr %in% c("disc 3020", "disc 9204", "disc 8113", "disc 9203"))
+
+
+df_prop$disc <- df_0$disc_nbr
+
+
+# quelques stats utiles
+
+extract_date <- data %>%
+  select (publication, date_comm, inner_id) %>%
+  unique() %>%
+  group_by(publication) %>%
+  summarise(maxdate = max(date_comm),
+            mindate = min(date_comm),
+            diff_date = max(date_comm) - min(date_comm))
+
+
+
+
+
 
 
