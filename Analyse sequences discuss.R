@@ -415,7 +415,17 @@ extract_date <- data %>%
   group_by(publication) %>%
   summarise(maxdate = max(date_comm),
             mindate = min(date_comm),
-            diff_date = max(date_comm) - min(date_comm))
+            diff_date = as.numeric(max(date_comm) - min(date_comm)))
+
+## Cutting extract_date$diff_date into extract_date$diff_date_rec
+extract_date$diff_date_rec <- cut(extract_date$diff_date,
+                                  include.lowest = TRUE,
+                                  right = FALSE,
+                                  dig.lab = 4,
+                                  breaks = c(0, 1, 11, 89, 299, 690.999999999998, 3089)
+)
+
+write.xlsx(extract_date, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/difftime.xlsx")
 
 
 
