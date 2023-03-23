@@ -2,7 +2,8 @@ rm(list = ls()) #supprimer tous les objets
 # https://store.genderize.io/usage
 # https://github.com/kalimu/genderizeR/issues/7
 # https://genderize.io/
-# https://journal.r-project.org/archive/2016/RJ-2016-002/index.html  
+# https://journal.r-project.org/archive/2016/RJ-2016-002/index.html 
+# https://kalimu.github.io/#contact
 
 library(tidyverse)
 library(questionr)
