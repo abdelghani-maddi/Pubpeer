@@ -1,5 +1,8 @@
 rm(list = ls()) #supprimer tous les objets 
-
+# https://store.genderize.io/usage
+# https://github.com/kalimu/genderizeR/issues/7
+# https://genderize.io/
+# https://journal.r-project.org/archive/2016/RJ-2016-002/index.html  
 
 library(tidyverse)
 library(questionr)
@@ -94,4 +97,8 @@ tb_final <- merge(tb, tbfin, by.x = "publication", by.y = "publication", all.x =
 # write.xlsx(tb_final, "D:/bdd/tb_finale.xlsx")
 
 tb_ech <- subset(tb_final, tb_final$`Nombre de commentaires`>1)
-  
+
+tb_ech %>% tbl_summary(
+  include = c(`Nombre de commentaires`, female_part)
+)
+
