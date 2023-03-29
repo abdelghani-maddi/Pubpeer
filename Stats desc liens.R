@@ -15,6 +15,7 @@ library(FactoMineR)
 library(factoextra)
 library(labelled)
 library(openxlsx)
+library(openxlsx2)
 library(officer)
 
 # Connexion ----
@@ -37,6 +38,9 @@ data_comm = dbGetQuery(con,reqsql)
 
 ### donnees local : commentaires
 data_comm <- readxl::read_excel("D:/bdd/data_comm.xlsx")
+data_comm <- data_comm %>%
+  select(inner_id, publication, DateCreated, html)
+names(data_comm) <- c("inner_id", "publication", "date_com", "comm")
 
 ### donnees urls
 reqsql2= paste('select * from data_urls_comm_2')
@@ -49,9 +53,10 @@ data_urls <- merge(data_urls, data_comm, by = c("inner_id", "publication"), all.
 
 # Transformer le format de la date du commentaire
 data_urls$annee <- format(data_urls$date_com.y, "%Y")
+data_urls$annee <- format(data_urls$date_com, "%Y") # local
 
 ## Select variables d'intérêt
-data_urls <- select(data_urls, c("comm", "date_com.y", "annee", "inner_id", "publication", "urls", "scheme", "domain", "port", "path", "parameter", "fragment", "sequence", "typo"))
+data_urls <- select(data_urls, c("comm.y", "date_com", "annee", "inner_id", "publication", "urls", "scheme", "domain", "port", "path", "parameter", "fragment", "sequence", "typo"))
 names(data_urls)[1:2] <- c("comm", "date_comm")
 var_label(data_urls) <- c("Commentaire", "Date du commentaire", "Année du commentaire", "Identifiant du commentaire", "Identifiant de la publication", 
                           "Urls entiers", "Schéma", "Domaine", "Port", "Chemin", "Filtres appliqués", "Fragment", "Séquence", "Typologie")
@@ -71,14 +76,19 @@ for (i in 1:nrow(grp_levenshtein)) {
 
 
 # Chercher les lignes où "path" contient "image" et "domain" contient "pubpeer"
-rows_to_modify <- which(grepl("image", data_urls$path) & grepl("pubpeer", data_urls$domain))
+rows_to_modify <- which(grepl("(image|jpeg|png|jpg|imgur)", data_urls$path, ignore.case = TRUE) & grepl("pubpeer", data_urls$domain, ignore.case = TRUE))
+# rows_to_modify <- which(grepl("(image|jpeg|png|jpg|imgur)", data_urls$path, ignore.case = TRUE)) pour généraliser à tout et non pubpeer only
+
 # Modifier les valeurs de "typo" dans les lignes sélectionnées
 data_urls$typo[rows_to_modify] <- gsub("pubpeer", "image", data_urls$typo[rows_to_modify])
+# data_urls$typo[rows_to_modify] <- "image" data_urls$path, ignore.case = TRUE)) pour généraliser à tout et non pubpeer only
+
 
 # Enregistrer le fichier dans postgresql
 dbWriteTable(con, "data_urls_comm", data_urls)
 # Enregistrer le fichier dans "Pubpeer explo"
 write_xlsx(data_urls, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/donnees_URLS.xlsx")
+write.xlsx(data_urls, "D:/bdd/donnees_URLS_fin.xlsx")
 
 # stats par annee
 theme_gtsummary_language(language = "fr", decimal.mark = ",", big.mark = " ")
