@@ -2,6 +2,7 @@
 
 # Créer un vecteur textuel
 v <- unique(as.character(data_urls$domain[data_urls$typo=="Médias"]))
+v <- freqmed$site
 # Harmoniser un peu pour éviter d'embouriller Levenshtein 
 for (i in 1:length(v)) {
   v[i] <- gsub(".com", "", v[i])
@@ -11,7 +12,13 @@ for (i in 1:length(v)) {
   v[i] <- gsub("blogspot", "", v[i])
   v[i] <- gsub("blog", "", v[i])
   v[i] <- gsub(".files", "", v[i])
+  v[i] <- gsub(".edu", "", v[i])
+  v[i] <- gsub("^\\.", "", v[i])
+  v[i] <- gsub("[.]+$", "", v[i])
+  v[i] <- gsub("\\.+\\b", "", v[i])
 }
+
+v <- na.omit(replace(v, v == "", NA))
 
 # Définir une fonction pour calculer la distance de Levenshtein entre deux chaînes
 levenshtein_distance <- function(s1, s2) {
@@ -68,6 +75,8 @@ df_levensh <- data.frame(id = rep(ids, lengths(groups)),
 df_levensh
 
 write_xlsx(df_levensh, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/grp_levenshtein.xlsx")
+write.xlsx(df_levensh, "D:/bdd/grp_levenshtein.xlsx")
+write.xlsx(freqmed, "D:/bdd/freqmed.xlsx")
 
 
 # Calculer les fréquences pour avoir une idée de la distribution des sites
