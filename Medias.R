@@ -32,6 +32,10 @@ con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port,
 # Test connexion
 dbListTables(con) 
 
+
+# donnees depuis local w
+data_urls <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/donnees_urls_fin.xlsx")
+
 # Récupération des données
 
 dfMed <- subset(data_urls, typo == 'Médias') %>%
@@ -49,7 +53,7 @@ names(freqmed) = c("site","nb","part","freq")
 # pour le calcul le fichier "Levenshtein distance.R" est utilisé
 # fichier de sortie : voir dossier bdd
 grp_leven <- readxl::read_excel("D:/bdd/grp_levenshtein.xlsx")
-
+grp_leven <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/grp_levenshtein 2.xlsx")
 # Parcourir chaque élément de la colonne "pattern" du dataframe "grp_leven"
 for (i in 1:nrow(grp_leven)) {
   # Trouver les indices des éléments de la colonne "domain" qui contiennent la chaîne de caractères spécifiée dans "pattern"
@@ -92,7 +96,9 @@ write.xlsx(nb3, "D:/bdd/nombres_par_annee_site.xlsx")
 # Pivoter l'annee pour n'analyse des séquences
 nb4 <- nb3 %>% 
   select(domain, annee, n) %>%
-  pivot_wider(names_from = annee, values_from = n, values_fill = 0)
+  pivot_wider(names_from = annee, values_from = n, values_fill = 0) %>% 
+  # Triez les colonnes en ordre croissant de l'année
+  select(domain, order(names(.)[-1]) + 1)
 
 nb5 <- nb4[,2:10]
 row.names(nb5) <- nb4$domain
@@ -125,13 +131,16 @@ row.names(autr_pr_acp) <- nb_autre$domain
 library(ggplot2)
 
 ggplot(med_top12) +
- aes(x = annee, y = n) +
- geom_col(fill = "#710C89") +
- labs(x = "Années des commentaires", 
- y = "Nombre d'apparitions", title = "Nombre d'apparition des sites dans les commentaires Pubpeer, par année", 
- caption = "AM - Données Pubpeer") +
- theme_light() +
- facet_wrap(vars(domain), scales = "free")
+  aes(x = annee, y = n) +
+  geom_col(fill = "#3256C4") +
+  labs(
+    x = "Années des commentaires",
+    y = "Nombre d'apparitions",
+    title = "Nombre d'apparitions dans les commentaires Pubpeer,
+    par année"
+  ) +
+  theme_minimal() +
+  facet_wrap(vars(domain), scales = "free")
 
 ggplot(med_top12) +
  aes(x = annee, y = n) +

@@ -42,11 +42,13 @@ data_comm <- data_comm %>%
   select(inner_id, publication, DateCreated, html)
 names(data_comm) <- c("inner_id", "publication", "date_com", "comm")
 
+
 ### donnees urls
 reqsql2= paste('select * from data_urls_comm_2')
 data_urls = dbGetQuery(con,reqsql2)
 ### En local :
 data_urls <- readxl::read_excel("D:/bdd/data_urls.xlsx")
+
 
 ## Recuperation de la date
 data_urls <- merge(data_urls, data_comm, by = c("inner_id", "publication"), all.x = TRUE)
