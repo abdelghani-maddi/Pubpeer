@@ -41,6 +41,28 @@ data_urls <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/donne
 dfMed <- subset(data_urls, typo == 'Médias') %>%
   unique()
 
+# Données sur la classification
+classification_em <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/classification-em.xlsx", 
+                                sheet = "Sheet 1")
+
+
+
+# Préparation des données avec la nouvelle classification
+# selectionner uniquement les deux colonnes "domain" et "typo" pour matcher avec la classification d'Emmanuel
+domains <- data_urls %>%
+  select(domain, typo) %>%
+  unique()
+# Classification d'Emmanuel
+cl_em <- classification_em %>%
+  select(site, Type_3_Catégrories2) %>%
+  data.frame()
+#cl_em$site <- tolower(cl_em$site)
+names(cl_em) <- c("domain", "typoC2")
+# l'ancienne classification utilisée pour le fichier d'EM
+old_class <- readxl::read_excel("classification sites.xlsx")
+# matcher old_class avec le fichier d'EM pour récupérer le domaine original et non celui de l'unification
+cl_em2 <- merge(cl_em, old_class, by.x = "domain", by.y = "type_sit", all.x = T)
+
 
 # Calcul de la fréquence des sites pour avoir une idée plus précise
 f <- factor(dfMed$domain) |>
