@@ -34,7 +34,7 @@ dbListTables(con)
 df <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/tb_finale.xlsx")
 bdd_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
 
-reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm, user from data_commentaires_2')
+reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires_2')
 # reqsql= paste('select * from data_commentaires_2')
 data_comm = dbGetQuery(con,reqsql)
 # Transformer le format de la date du commentaire
@@ -276,23 +276,65 @@ row_data <- tidyr::separate(row_data, col = oa, into = c("is_oa", "oa_status"), 
 row_data$is_oa <- gsub("{'is_oa': ", "", row_data$is_oa, fixed = TRUE)
 row_data$oa_status <- gsub("'oa_status': ", "", row_data$oa_status, fixed = TRUE)
 
+
+### Ajouter les variables suivantes :
+# Nombre de commentaires avant rétraction
+# Nombre de commentaires après rétraction
+# Raison de la rétraction
+
+
+# Matcher avec DOI la base des pubilcations commentées et la dernière verion
+# de RetractionWath (24 avril 2023) - cf mail de Ivan
+
+
+pub <- bdd_pub %>%
+  select(publication, Retracted, DOI) 
+
+pub_ret <- rtw %>%
+  select(`Record ID`, OriginalPaperDOI, RetractionDate, OriginalPaperDate, Reason, Continent)
+names(pub_ret) = c("ID_retractionwatch", "DOI","RetractionDate","OriginalPaperDate","OriginalPaperDate", "Continent")
+
+
+# Supprimer les caractères spéciaux et les espaces des colonnes "DOI" des dataframes pub et pub_ret
+pub$DOI_clean <- gsub("[^[:alnum:]]", "", pub$DOI)
+pub_ret$DOI_clean <- gsub("[^[:alnum:]]", "", pub_ret$DOI)
+
+# Faire le match en fonction de la colonne "DOI_clean"
+retraction_data <- merge(pub, pub_ret, by = "DOI_clean")
+
+# Supprimer la colonne "DOI_clean" du dataframe fusionné
+retraction_data$DOI_clean <- NULL
+
+## travail sur les commentaires
+# Compter le nombre de "inner_id" par "publication" et par "date_com"
+count_data <- aggregate(inner_id ~ publication + date_com, data_comm, length)
+
+# Renommer la colonne "inner_id" en "count"
+names(count_data)[names(count_data) == "inner_id"] <- "nb_comm"
+
+
+# Joindre les dataframes count_data et retraction_data par la colonne "publication"
+merged_data <- merge(count_data, retraction_data, by = "publication")
+
+
+merged_data$nb_com_before_retract <- with(merged_data, ifelse(date_com < RetractionDate, nb_comm, 0))
+merged_data$nb_com_after_retract <- with(merged_data, ifelse(date_com >= RetractionDate, nb_comm, 0))
+
+retraction_data <- aggregate(cbind(nb_com_before_retract, nb_com_after_retract, nb_comm) ~ publication + Retracted + ID_retractionwatch + RetractionDate + OriginalPaperDate + Continent, data = merged_data, FUN = sum)
+
+
+
 ### Bdd
 bdd_regr <- bdd_pub %>%
   left_join(., df_nb_aut[,c(1,2,18,19,20)], by = "publication") %>%
-  select(publication, Retracted, Gtype, nb_aut, Nombre.de.commentaires, Journal_H_index_2021, Journal_Rank_SJR_2021, Journal_Région) %>%
-  left_join(., row_data, by = "publication")
+  select(publication, Gtype, nb_aut, Nombre.de.commentaires, Journal_H_index_2021, Journal_Rank_SJR_2021, Journal_Région) %>%
+  left_join(., row_data, by = "publication") %>%
+  left_join(., retraction_data, by = "publication")
 
 ## Opérations sur les variables
-bdd_regr$Retracted <- factor(bdd_regr$Retracted)
-bdd_regr$is_oa <- factor(bdd_regr$is_oa)
+bdd_regr$is_retracted <- ifelse(is.na(bdd_regr$RetractionDate), 0, 1)
 
-## Recoding bdd_regr$Retracted
-bdd_regr$Retracted_rec <- bdd_regr$Retracted %>%
-  fct_recode(
-    "0" = "False",
-    NULL = "None",
-    "1" = "True"
-  )
+
 ## Recoding bdd_regr$oa_status into bdd_regr$oa_status_rec
 bdd_regr$oa_status <- bdd_regr$oa_status %>%
   fct_recode(
@@ -319,17 +361,30 @@ bdd_regr <- pivot_wider(bdd_regr, names_from = Gtype, values_from = Gtype, value
                              values_fill = list(Gtype = 0))
 
 ## Recoding bdd_regr$Journal_Région
-bdd_regr$Journal_Région <- bdd_regr$Journal_Région %>%
-  fct_recode(
-    "None" = ""
-  )
+# bdd_regr$Journal_Région <- bdd_regr$Journal_Région %>%
+#   fct_recode(
+#     "None" = ""
+#   )
+## Recoding bdd_regr$Continent
+bdd_regr$Continent <- bdd_regr$Continent %>%
+  fct_explicit_na("Unknown")
 
 # Pivoter la région pour n'analyse
-bdd_regr <- pivot_wider(bdd_regr, names_from = Journal_Région, values_from = Journal_Région, values_fn = list(Journal_Région = function(x) 1), 
-                        values_fill = list(Journal_Région = 0))
+bdd_regr <- pivot_wider(bdd_regr, names_from = Continent, values_from = Continent, values_fn = list(Continent = function(x) 1), 
+                        values_fill = list(Continent = 0))
+
+
+###
+bdd_regr$nb_com_before_retract <- ifelse(is.na(bdd_regr$nb_com_before_retract), bdd_regr$Nombre.de.commentaires, bdd_regr$nb_com_before_retract)
+bdd_regr$nb_com_after_retract <- ifelse(is.na(bdd_regr$nb_com_after_retract), bdd_regr$Nombre.de.commentaires, bdd_regr$nb_com_after_retract)
+###
+
+bdd_regr <- bdd_regr %>%
+  select(., -ID_retractionwatch, -nb_comm, -RetractionDate, -OriginalPaperDate, -Retracted, -`Journal_Région`)
+
 
 bdd_regr <- subset(bdd_regr, complete.cases(bdd_regr)) %>%
-  select(., -None, -Gtype_na) # toutes leurs valeurs sont nulles car filtre précédent
+  select(., -Gtype_na) # toutes leurs valeurs sont nulles car filtre précédent
 
 ## récupérer les disciplines
 reqsql= paste('select distinct publication, discipline from commentaires_par_discipline')
@@ -344,14 +399,18 @@ bdd_regr <- bdd_regr %>%
 bdd_regr <- pivot_wider(bdd_regr, names_from = discipline, values_from = discipline, values_fn = list(discipline = function(x) 1), 
                         values_fill = list(discipline = 0))
 
+## Ajouter le pays de l'auteur correspondant (1er auteur dans la majorité des cas)
+
+
+
 
 # Regression ----
 
 ## Enregister la table pour ne pas refaire toutes les étapes plus haut pour faire la régression
-write.xlsx(bdd_regr, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/bdd_reg.xlsx")
+write.xlsx(bdd_regr, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/bdd_reg2.xlsx")
 
 # Ajuster un modèle de régression logistique
-modele_logit1 <- glm(Retracted ~ bdd_regr$`Collab. men only` + bdd_regr$`Collab. men-women` + bdd_regr$`Collab. women only` + bdd_regr$`Man alone`,
+modele_logit1 <- glm(is_retracted ~ bdd_regr$`Collab. men only` + bdd_regr$`Collab. men-women` + bdd_regr$`Collab. women only` + bdd_regr$`Man alone`,
                     data = bdd_regr, 
                     family = binomial)
 summary(modele_logit1)
@@ -361,14 +420,16 @@ cat("R^2 : ", R2, "\n")
 
 
 ## variables de controle
-modele_logit2 <- glm(Retracted ~ bdd_regr$`Collab. men only` + bdd_regr$`Collab. men-women` + bdd_regr$`Collab. women only` + bdd_regr$`Man alone`+
-                       log(bdd_regr$Nombre.de.commentaires) + 
+modele_logit2 <- glm(is_retracted ~ bdd_regr$`Collab. men only` + bdd_regr$`Collab. men-women` + bdd_regr$`Collab. women only` + bdd_regr$`Man alone`+
+                       # log(bdd_regr$Nombre.de.commentaires) + 
+                       log(1 + bdd_regr$nb_com_before_retract)  +
+                       log(1 + bdd_regr$nb_com_after_retract)  +
                        log(bdd_regr$nb_aut) + 
                        log(bdd_regr$Journal_Rank_SJR_2021) +
                        is_oa +
-                       bdd_regr$`Asiatic Region` +
-                       bdd_regr$`Northern America` +
-                       bdd_regr$`Western Europe`, 
+                       bdd_regr$Asia +
+                       bdd_regr$Africa +
+                       bdd_regr$Europe, 
                      data = bdd_regr, 
                      family = binomial)
 summary(modele_logit2)
@@ -378,16 +439,17 @@ cat("R^2 : ", R2, "\n")
 
 
 ## variables de controle : discipline
-modele_logit3 <- glm(Retracted ~ bdd_regr$`Collab. men only` + bdd_regr$`Collab. men-women` + bdd_regr$`Collab. women only` + bdd_regr$`Man alone`+
-                       log(bdd_regr$Nombre.de.commentaires) + 
+modele_logit3 <- glm(is_retracted ~ bdd_regr$`Collab. men only` + bdd_regr$`Collab. men-women` + bdd_regr$`Collab. women only` + bdd_regr$`Man alone`+
+                       # log(bdd_regr$Nombre.de.commentaires) + 
+                       log(1 + bdd_regr$nb_com_before_retract)  +
+                       log(1 + bdd_regr$nb_com_after_retract)  +
                        log(bdd_regr$nb_aut) + 
                        log(bdd_regr$Journal_Rank_SJR_2021) +
                        is_oa +
-                       bdd_regr$`Asiatic Region` +
-                       bdd_regr$`Northern America` +
-                       bdd_regr$`Western Europe` +
+                       bdd_regr$Asia +
+                       bdd_regr$Africa +
+                       bdd_regr$Europe +
                        bdd_regr$`Social Sciences` +
-                       bdd_regr$Multidisciplinary +
                        bdd_regr$`Physical Sciences` +
                        bdd_regr$Technology +
                        bdd_regr$`Arts Humanities`, 
@@ -462,5 +524,52 @@ gt_table %>%
 gt_table %>%
   gtsummary::as_gt() %>% 
   gt::gtsave(., "example_gtsummary3.rtf")
+
+
+
+
+
+
+
+# nombre de publications : n_distinct(df_stats_glob_m$publication)
+
+# Statistiques selon retractation
+a <- bdd_regr %>%
+  select(publication, is_retracted) %>%
+  right_join(., df_nb_aut, by = "publication") # matcher
+
+stat_retract_coll <- a %>%
+  select(publication, Gtype, is_retracted)
+
+###
+stat_retract_coll %>% 
+  tbl_summary(
+    include = c(publication, Gtype, is_retracted),
+    by = is_retracted,
+    sort = list(everything() ~ "frequency"),
+    statistic = list(
+      all_continuous() ~ c("{N_obs}") 
+    )
+  ) %>%
+  add_overall()  %>%
+  # adding spanning header
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Is retracted**") %>%
+  add_p() %>%
+  separate_p_footnotes()
+
+###
+ggplot(relative_prop) +
+  aes(x = Var1, y = Freq) +
+  geom_col(fill = "#2C81C9") +
+  labs(
+    x = "Men-women collaboration type",
+    y = "% in retracted / % in overall"
+  ) +
+  coord_flip() +
+  theme_light()
+
+
+
+
 
 

@@ -35,6 +35,8 @@ dbListTables(con)
 reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires_2')
 data_comm = dbGetQuery(con,reqsql)
 
+rtw <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/Gender/RWDBDNLD04242023.xlsx",sheet = "RWDBDNLD04242023")
+
 ### Récupération des données en local
 data_pub <- readxl::read_excel("D:/bdd/data_pub.xlsx")
 
