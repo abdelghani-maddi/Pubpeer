@@ -97,6 +97,8 @@ nb_ann <- df_nb_aut %>%
 
 # Nombre par annee de commentaire
 df_nb_aut <- merge(df_nb_aut, data_comm, by.x = "publication", by.y = "publication", all.x = TRUE) # matcher
+## Enregister la table pour ne pas refaire toutes les étapes plus haut pour faire les stats desc
+write.xlsx(df_nb_aut, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/df_nb_aut.xlsx")
 
 
 nb_ann_com <- df_nb_aut %>%
@@ -288,11 +290,12 @@ row_data$oa_status <- gsub("'oa_status': ", "", row_data$oa_status, fixed = TRUE
 
 
 pub <- bdd_pub %>%
-  select(publication, Retracted, DOI) 
+  select(publication, DOI) 
 
 pub_ret <- rtw %>%
-  select(`Record ID`, OriginalPaperDOI, RetractionDate, OriginalPaperDate, Reason, Continent)
-names(pub_ret) = c("ID_retractionwatch", "DOI","RetractionDate","OriginalPaperDate","OriginalPaperDate", "Continent")
+  select(`Record ID`, OriginalPaperDOI, RetractionDate, OriginalPaperDate, Reason, Continent) #%>%
+  # filter(. , `Record ID` != "36438")
+names(pub_ret) = c("ID_retractionwatch", "DOI","RetractionDate","OriginalPaperDate","Reason", "Continent")
 
 
 # Supprimer les caractères spéciaux et les espaces des colonnes "DOI" des dataframes pub et pub_ret
@@ -316,18 +319,16 @@ names(count_data)[names(count_data) == "inner_id"] <- "nb_comm"
 # Joindre les dataframes count_data et retraction_data par la colonne "publication"
 merged_data <- merge(count_data, retraction_data, by = "publication")
 
-
 merged_data$nb_com_before_retract <- with(merged_data, ifelse(date_com < RetractionDate, nb_comm, 0))
 merged_data$nb_com_after_retract <- with(merged_data, ifelse(date_com >= RetractionDate, nb_comm, 0))
 
-retraction_data <- aggregate(cbind(nb_com_before_retract, nb_com_after_retract, nb_comm) ~ publication + Retracted + ID_retractionwatch + RetractionDate + OriginalPaperDate + Continent, data = merged_data, FUN = sum)
-
-
+retraction_data <- aggregate(cbind(nb_com_before_retract, nb_com_after_retract, nb_comm) ~ publication + ID_retractionwatch + 
+                               RetractionDate + OriginalPaperDate + Continent, data = merged_data, FUN = sum)
 
 ### Bdd
 bdd_regr <- bdd_pub %>%
   left_join(., df_nb_aut[,c(1,2,18,19,20)], by = "publication") %>%
-  select(publication, Gtype, nb_aut, Nombre.de.commentaires, Journal_H_index_2021, Journal_Rank_SJR_2021, Journal_Région) %>%
+  select(publication, Gtype, nb_aut, Nombre.de.commentaires, Journal_H_index_2021, Journal_Rank_SJR_2021) %>%
   left_join(., row_data, by = "publication") %>%
   left_join(., retraction_data, by = "publication")
 
@@ -379,8 +380,14 @@ bdd_regr$nb_com_before_retract <- ifelse(is.na(bdd_regr$nb_com_before_retract), 
 bdd_regr$nb_com_after_retract <- ifelse(is.na(bdd_regr$nb_com_after_retract), bdd_regr$Nombre.de.commentaires, bdd_regr$nb_com_after_retract)
 ###
 
+###
+bdd_regr$nb_com_before_retract <- ifelse(is.na(bdd_regr$nb_com_before_retract), 0, bdd_regr$nb_com_before_retract)
+bdd_regr$nb_com_after_retract <- ifelse(is.na(bdd_regr$nb_com_after_retract), 0, bdd_regr$nb_com_after_retract)
+###
+
+
 bdd_regr <- bdd_regr %>%
-  select(., -ID_retractionwatch, -nb_comm, -RetractionDate, -OriginalPaperDate, -Retracted, -`Journal_Région`)
+  select(., -ID_retractionwatch, -nb_comm, -RetractionDate, -OriginalPaperDate)
 
 
 bdd_regr <- subset(bdd_regr, complete.cases(bdd_regr)) %>%
@@ -407,10 +414,10 @@ bdd_regr <- pivot_wider(bdd_regr, names_from = discipline, values_from = discipl
 # Regression ----
 
 ## Enregister la table pour ne pas refaire toutes les étapes plus haut pour faire la régression
-write.xlsx(bdd_regr, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/bdd_reg2.xlsx")
+write.xlsx(bdd_regr, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/bdd_reg3.xlsx")
 
 # Ajuster un modèle de régression logistique
-modele_logit1 <- glm(is_retracted ~ bdd_regr$`Collab. men only` + bdd_regr$`Collab. men-women` + bdd_regr$`Collab. women only` + bdd_regr$`Man alone`,
+modele_logit1 <- glm(is_retracted ~ `Collab. men only` + `Collab. men-women` + `Collab. women only` + `Man alone`,
                     data = bdd_regr, 
                     family = binomial)
 summary(modele_logit1)
@@ -420,16 +427,16 @@ cat("R^2 : ", R2, "\n")
 
 
 ## variables de controle
-modele_logit2 <- glm(is_retracted ~ bdd_regr$`Collab. men only` + bdd_regr$`Collab. men-women` + bdd_regr$`Collab. women only` + bdd_regr$`Man alone`+
-                       # log(bdd_regr$Nombre.de.commentaires) + 
-                       log(1 + bdd_regr$nb_com_before_retract)  +
-                       log(1 + bdd_regr$nb_com_after_retract)  +
-                       log(bdd_regr$nb_aut) + 
-                       log(bdd_regr$Journal_Rank_SJR_2021) +
+modele_logit2 <- glm(is_retracted ~ `Collab. men only` + `Collab. men-women` + `Collab. women only` + `Man alone`+
+                       log(Nombre.de.commentaires) +
+                       # log(1 + nb_com_before_retract)  +
+                       # log(1 + nb_com_after_retract)  +
+                       log(nb_aut) +
+                       log(Journal_Rank_SJR_2021) +
                        is_oa +
-                       bdd_regr$Asia +
-                       bdd_regr$Africa +
-                       bdd_regr$Europe, 
+                       Asia +
+                       Africa
+                     , 
                      data = bdd_regr, 
                      family = binomial)
 summary(modele_logit2)
@@ -542,6 +549,11 @@ stat_retract_coll <- a %>%
   select(publication, Gtype, is_retracted)
 
 ###
+## Recoding stat_retract_coll$is_retracted
+
+stat_retract_coll$is_retracted <- factor(stat_retract_coll$is_retracted) %>%
+  fct_explicit_na("0")
+
 stat_retract_coll %>% 
   tbl_summary(
     include = c(publication, Gtype, is_retracted),
@@ -558,6 +570,30 @@ stat_retract_coll %>%
   separate_p_footnotes()
 
 ###
+
+# Calculate the total number of rows in the dataframe
+total <- nrow(stat_retract_coll)
+
+# Create a table of counts for each "Gtype" value
+table_all <- table(stat_retract_coll$Gtype)
+
+# Create a table of counts for each "Gtype" value where "Retracted" is "True"
+table_retracted <- table(stat_retract_coll$Gtype[stat_retract_coll$is_retracted == 1])
+
+# Calculate the relative proportion of each "Gtype" value in the entire dataframe
+prop_all <- table_all / total
+
+# Calculate the relative proportion of each "Gtype" value for "Retracted" = TRUE
+prop_retracted <- table_retracted / sum(stat_retract_coll$is_retracted == 1)
+
+# Divide the relative proportions for "Retracted" = TRUE by those in the entire dataframe
+relative_prop <- as.data.frame(prop_retracted / prop_all)
+
+# Print the resulting table of relative proportions
+relative_prop
+
+
+
 ggplot(relative_prop) +
   aes(x = Var1, y = Freq) +
   geom_col(fill = "#2C81C9") +
@@ -571,5 +607,12 @@ ggplot(relative_prop) +
 
 
 
+
+###
+
+doub_retrac <- rtw %>%
+  select(`Record ID`, OriginalPaperDOI) %>%
+  unique() %>%
+  aggregate(`Record ID` ~ OriginalPaperDOI, data = ., FUN = length)
 
 
