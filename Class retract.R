@@ -5,6 +5,8 @@ rm(list = ls()) #supprimer tous les objets
 # https://journal.r-project.org/archive/2016/RJ-2016-002/index.html 
 # https://kalimu.github.io/#contact
 
+# http://jkrieger.scripts.mit.edu/retractions/    ### retractions classification
+
 library(tidyverse)
 library(questionr)
 library(RPostgres)
