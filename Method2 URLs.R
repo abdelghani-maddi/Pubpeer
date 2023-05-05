@@ -1,9 +1,6 @@
 rm(list = ls()) #supprimer tous les objets 
 
 
-library(stringr)
-library(tibble)
-library(tidytext)
 library(textdata)
 library(Hmisc)
 library(zoo)
@@ -18,14 +15,12 @@ library(RPostgres)
 library(lubridate)
 library(timechange)
 library(urltools)
-library(stringr)
 library(rebus)
 library(Matrix)
 library(plyr)
 library(sjmisc)
 library(regexplain)
 library(gtsummary)
-library(igraph)
 library(openxlsx2)
 library(httr)
 library(rvest)
@@ -98,6 +93,8 @@ f <- factor(urls_unique$domain) |>
 freqsit <- data.frame(rownames(f),f)
 names(freqsit) = c("site","nb","part","freq")
 
+
+
 # Typologie des sites : tableau de correspondance ----
 class_sites <- readxl::read_xlsx("classification sites2.xlsx", sheet = "Feuil3", col_names = TRUE)
 
@@ -126,12 +123,43 @@ urls_unique$typo <- factor(urls_unique$typo) %>%
   fct_explicit_na("Autre")
 
 
+
+# Chercher les lignes où "path" contient "image" et "domain" contient "pubpeer"
+rows_to_modify <- which(grepl("(image|jpeg|png|jpg|imgur)", urls_unique$urls, ignore.case = TRUE))
+# rows_to_modify <- which(grepl("(image|jpeg|png|jpg|imgur)", data_urls$path, ignore.case = TRUE)) pour généraliser à tout et non pubpeer only
+
+# Modifier les valeurs de "typo" dans les lignes sélectionnées
+#data_urls$typo[rows_to_modify] <- gsub("pubpeer", "image", data_urls$typo[rows_to_modify])
+urls_unique$typo[rows_to_modify] <- "image" # urls_unique$path, ignore.case = TRUE)) # pour généraliser à tout et non pubpeer only
+
+
+# Récupérer quelques lignes classées "Autre" :
+urls_unique$typo <- ifelse(
+  urls_unique$typo == "Autre" & grepl("doi", urls_unique$urls),
+  "Editeur - revue",
+  ifelse(
+    urls_unique$typo == "Autre" & grepl("api", urls_unique$urls),
+    "Code - Scripts",
+    ifelse(
+      urls_unique$typo == "Autre" & grepl("data", urls_unique$urls),
+      "Base de données",
+      ifelse(
+        urls_unique$typo == "Autre" & grepl("pdf", urls_unique$path),
+        "Editeur - revue",
+        urls_unique$typo # garde l'ancienne valeur de "typo" sinon
+      )
+    )
+  )
+)
+
+
 # Calcul de la fréquence des sites "autre" pour avoir une idée plus précise
 f <- factor(urls_unique$domain[urls_unique$typo=="Autre"]) |>
   fct_infreq() |> 
   questionr::freq()
 freqsit <- data.frame(rownames(f),f)
 names(freqsit) = c("site","nb","part","freq")
+
 
 # Calcul de la fréquence des sites "autre" pour avoir une idée plus précise
 f2 <- factor(urls_unique$typo[urls_unique$typo!="pubpeer"]) |>
@@ -142,6 +170,9 @@ names(freqsit2) = c("site","nb","part","freq")
 
 ## ecrire la table sur Postgresql pour calculer les cooccurrences
 dbWriteTable(con, "data_urls_comm_2", urls_unique)
+
+
+
 
 
 # Calcul de la fréquence des sites pour avoir une idée plus précise
@@ -166,17 +197,4 @@ f <- factor(urls_unique$domain[urls_unique$typo == "Réseau social"]) |>
 freqresau <- data.frame(rownames(f),f)
 names(freqsit) = c("site","nb","part","freq")
 
-
-## Commandes pas executées, mais c'est à faire pour nettoyer et récupérer les quelques 600 URLs mal parsés
-a <- subset(urls_v1, urls_v1$server=="")
-# Extraire le protocole (http://)
-protocole <- gsub("^(.*://).*", "\\1", a$urls)
-# Extraire le nom de domaine (www.example.com)
-domaine <- gsub("^.*://([^/]+).*", "\\1", a$urls)
-# Extraire le chemin (/path/to/)
-chemin <- gsub("^.*://[^/]+(/.*/).*", "\\1", a$urls)
-# Extraire le nom de fichier (file.html)
-nom_fichier <- gsub("^.*://[^/]+/.*/(.*)$", "\\1", a$urls)
-b <- data.frame(protocole,domaine,chemin)
-#####
 
