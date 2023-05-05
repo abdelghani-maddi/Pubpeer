@@ -134,24 +134,16 @@ urls_unique$typo[rows_to_modify] <- "image" # urls_unique$path, ignore.case = TR
 
 
 # Récupérer quelques lignes classées "Autre" :
-urls_unique$typo <- ifelse(
-  urls_unique$typo == "Autre" & grepl("doi", urls_unique$urls),
-  "Editeur - revue",
-  ifelse(
-    urls_unique$typo == "Autre" & grepl("api", urls_unique$urls),
-    "Code - Scripts",
-    ifelse(
-      urls_unique$typo == "Autre" & grepl("data", urls_unique$urls),
-      "Base de données",
-      ifelse(
-        urls_unique$typo == "Autre" & grepl("pdf", urls_unique$path),
-        "Editeur - revue",
-        urls_unique$typo # garde l'ancienne valeur de "typo" sinon
-      )
+urls_unique <- urls_unique %>%
+  mutate(
+    typo = case_when(
+      typo == "Autre" & grepl("doi", urls) ~ "Editeur - revue",
+      typo == "Autre" & grepl("api", urls) ~ "Code - Scripts",
+      typo == "Autre" & grepl("data", urls) ~ "Base de données",
+      typo == "Autre" & grepl("pdf", path) ~ "Editeur - revue",
+      TRUE ~ typo
     )
   )
-)
-
 
 # Calcul de la fréquence des sites "autre" pour avoir une idée plus précise
 f <- factor(urls_unique$domain[urls_unique$typo=="Autre"]) |>
@@ -170,10 +162,6 @@ names(freqsit2) = c("site","nb","part","freq")
 
 ## ecrire la table sur Postgresql pour calculer les cooccurrences
 dbWriteTable(con, "data_urls_comm_2", urls_unique)
-
-
-
-
 
 # Calcul de la fréquence des sites pour avoir une idée plus précise
 f <- factor(urls_unique$typo[urls_unique$typo != "pubpeer" & urls_unique$typo != "Editeur - revue"]) |>
