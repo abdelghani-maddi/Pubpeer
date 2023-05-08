@@ -140,6 +140,31 @@ dbWriteTable(con, "data_pays", data_pays)
 
 ############################
 ############################
+
+############################
+############################
+### Dimension oa
+############################
+############################
+
+row_data = data.frame(bdd_pub$publication,((bdd_pub$Open_Access)))
+names(row_data) = c("id","oa")
+
+clean_data =  data.frame(row_data$id, gsub("  ", " ",(str_replace_all((str_split(row_data$oa, "'," , simplify = TRUE)), "[[:punct:]]", ""))))
+names(clean_data) = c("id","oa")
+
+data_pays <- subset(clean_data, pays != "")
+
+describe(data_pays)
+
+## Mettre la table sur PostgresSQL
+names(data_pays) = c("id","pays")
+dbWriteTable(con, "data_pays", data_pays)
+
+
+
+############################
+############################
 ### Dimension annee et infos publi comm
 ############################
 ############################

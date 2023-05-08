@@ -25,7 +25,7 @@ db <- 'SKEPTISCIENCE'  #provide the name of your db
 host_db <- 'localhost' # server
 db_port <- '5433'  # port DBA
 db_user <- 'postgres' # nom utilisateur  
-db_password <- 'Maroua1912'
+db_password <- '********'
 con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port, user=db_user, password=db_password) 
 # Test connexion
 dbListTables(con) 
@@ -34,6 +34,8 @@ dbListTables(con)
 
 reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires_2')
 data_comm = dbGetQuery(con,reqsql)
+
+rtw <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/Gender/RWDBDNLD04242023.xlsx",sheet = "RWDBDNLD04242023")
 
 ### Récupération des données en local
 data_pub <- readxl::read_excel("D:/bdd/data_pub.xlsx")
@@ -66,7 +68,7 @@ df_unnested$prenoms <- sapply(strsplit(df_unnested$Auteur, " "), function(x) x[1
 
 
 # Usage de genderizeR
-givenNames = findGivenNames(df_unnested$Auteur, progress = FALSE, apikey = '0005346dd6d511911a5c214026f97992')
+givenNames = findGivenNames(df_unnested$Auteur, progress = FALSE, apikey = '***********************')
 names(givenNames) <- c("id", "gender", "given_name", "proba", "country_id")
 #write.xlsx(givenNames, "D:/bdd/gender_proba.xlsx")
 
