@@ -183,7 +183,7 @@ for (i in 1:nrow(grp_levenshtein)) {
 # Enregistrer le fichier dans postgresql
 dbWriteTable(con, "data_urls_comm", data_urls)
 # Enregistrer le fichier dans "Pubpeer explo"
-write_xlsx(data_urls, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/donnees_URLS.xlsx")
+write_xlsx(data_urls, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/donnees_URLS_fin.xlsx")
 write.xlsx(data_urls, "D:/bdd/donnees_URLS_fin.xlsx")
 
 
@@ -217,7 +217,7 @@ names(freqsit) = c("site","nb","part","freq")
 f <- factor(urls_unique$domain[urls_unique$typo == "Médias"]) |>
   fct_infreq() |> 
   questionr::freq()
-freqmed <- data.frame(rownames(f),f)
+freqmed1 <- data.frame(rownames(f),f)
 names(freqsit) = c("site","nb","part","freq")
 
 # Calcul de la fréquence des sites pour avoir une idée plus précise

@@ -39,13 +39,12 @@ data_urls <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/donne
 # Récupération des données
 
 dfMed <- subset(data_urls, typo == 'Médias') %>%
+  select(-comm) %>%
   unique()
 
 # Données sur la classification
 classification_em <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/classification-em.xlsx", 
                                 sheet = "Sheet 1")
-
-
 
 # Préparation des données avec la nouvelle classification
 # selectionner uniquement les deux colonnes "domain" et "typo" pour matcher avec la classification d'Emmanuel
@@ -63,6 +62,19 @@ old_class <- readxl::read_excel("classification sites.xlsx")
 # matcher old_class avec le fichier d'EM pour récupérer le domaine original et non celui de l'unification
 cl_em2 <- merge(cl_em, old_class, by.x = "domain", by.y = "type_sit", all.x = T)
 
+# matcher old_class avec le fichier d'EM pour récupérer le domaine original et non celui de l'unification
+cl_em3 <- merge(cl_em2, classification_em, by.x = "domain", by.y = "site", all.x = T)
+
+cl_em3 <- cl_em3 %>%
+  filter(., !is.na(Type_1_nom))
+
+# Remplacer les valeurs manquantes de la colonne "original" de cl_em3 par les valeurs de la colonne "domain"
+cl_em3$original <- ifelse(is.na(cl_em3$original), cl_em3$domain, cl_em3$original)
+
+a <- cl_em3 %>%
+  select(original) %>%
+  unique()
+
 
 # Calcul de la fréquence des sites pour avoir une idée plus précise
 f <- factor(dfMed$domain) |>
@@ -70,6 +82,41 @@ f <- factor(dfMed$domain) |>
   questionr::freq()
 freqmed <- data.frame(rownames(f),f)
 names(freqmed) = c("site","nb","part","freq")
+
+b <- freqmed %>%
+  select(site) %>%
+  unique()
+
+
+# Création d'une fonction pour chercher les correspondances entre "site" et "original" en utilisant une expression régulière
+find_match <- function(site, original) {
+  sapply(site, function(x) {
+    m <- grep(x, original, value = TRUE)
+    if (length(m) > 0) m[1] else NA
+  })
+}
+
+# Chercher les correspondances entre "site" et "original" en utilisant la fonction find_match()
+b$original <- find_match(b$site, a$original)
+# Ajouter la colonne "value" de "a" à "b" en utilisant la colonne "original" comme clé de correspondance
+b$value <- a$value[match(b$original, a$original)]
+
+
+# ajouter b à freqmed
+freqmed2 <- merge(freqmed, b, by = "site")
+
+# Faire un left join entre freqmed2 et cl_em3 en utilisant la colonne "original"
+merged <- merge(freqmed2, cl_em3, by = "original", all.x = TRUE)
+merged <- merged %>% 
+  select(-original,-site.y,-nbr_apparitions, -part.y, -`part cumulée`,-domain)
+# Modifier le nom de la première colonne de "merged" en "site" & part.x en part
+names(merged)[c(1,3)] <- c("site","part")
+
+
+write.xlsx(merged, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/medias_frequence_et_ancienne_classif.xlsx")
+write.xlsx(dfMed, "/Users/maddi/Documents/Pubpeer project/Pubpeer explo/bdd_urls_medias.xlsx")
+
+
 
 # Calcul de la distance Levenshtein et récupération du fichier
 # pour le calcul le fichier "Levenshtein distance.R" est utilisé
@@ -84,13 +131,20 @@ for (i in 1:nrow(grp_leven)) {
   dfMed$domain[idx] <- grp_leven$remplacement[i]
 }
 
+# Calcul de la fréquence des sites pour avoir une idée plus précise
+f <- factor(dfMed$domain) |>
+  fct_infreq() |> 
+  questionr::freq()
+freqmed <- data.frame(rownames(f),f)
+names(freqmed) = c("site","nb","part","freq")
+
+
 ## Nombre d'apparitions par année
 nb <- dfMed %>%
   select(domain, annee)
-  
-nb <- nb %>%
-  group_by(domain, annee) %>%
-  summarise(n = n())
+
+nb <- aggregate(nb$domain, by=list(nb$annee, nb$domain), FUN=length)
+colnames(nb) <- c("annee", "domain", "n")
 
 
 nb2 <- nb %>%
@@ -105,18 +159,11 @@ total_domain <- nb2 %>%
   group_by(domain) %>% 
   summarise(total_domain = sum(n))
 
-# Calculer la part de chaque domaine dans le total de toutes les années
-nb3 <- nb2 %>%
-  left_join(total_domain, by = "domain") %>%
-  mutate(part_annee = n/sum(n)*100,
-         part_total = n/total_domain*100) %>%
-  select(domain, annee, n, part_annee, part_total)
-
-write.xlsx(nb3, "D:/bdd/nombres_par_annee_site.xlsx")
+# write.xlsx(nb2, "D:/bdd/nombres_par_annee_site.xlsx")
 
 # pivoter l'annee
 # Pivoter l'annee pour n'analyse des séquences
-nb4 <- nb3 %>% 
+nb4 <- nb2 %>% 
   select(domain, annee, n) %>%
   pivot_wider(names_from = annee, values_from = n, values_fill = 0) %>% 
   # Triez les colonnes en ordre croissant de l'année
@@ -128,13 +175,13 @@ row.names(nb5) <- nb4$domain
 ## select 
 `%not_in%` <- purrr::negate(`%in%`)
 
-med_top12 <- nb3 %>%
+med_top12 <- nb2 %>%
   subset(., domain %in% c("retractionwatch","forbetterscience","scienceintegritydigest",
                           "mythsofvisionscience","wikipedia","sanchak","dovepress",
                           "raphazlab","publicationethics","content.iospress.com",
                           "scholarlyoa", "nytimes"))
 
-med_autre <- nb3 %>%
+med_autre <- nb2 %>%
   subset(., domain %not_in% c("retractionwatch","forbetterscience","scienceintegritydigest",
                           "mythsofvisionscience","wikipedia","sanchak","dovepress",
                           "raphazlab","publicationethics","content.iospress.com",
