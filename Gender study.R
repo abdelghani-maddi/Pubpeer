@@ -34,11 +34,12 @@ dbListTables(con)
 
 reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires_2')
 data_comm = dbGetQuery(con,reqsql)
-
 rtw <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/Gender/RWDBDNLD04242023.xlsx",sheet = "RWDBDNLD04242023")
 
 ### Récupération des données en local
 data_pub <- readxl::read_excel("D:/bdd/data_pub.xlsx")
+data_comm <- readxl::read_excel("D:/bdd/data_comm.xlsx")
+rtw <- readxl::read_excel("D:/bdd/RWDBDNLD04242023.xlsx")
 
 ### Extraction colonnes d'intérêt et suppression des autres données
 df <- data_pub %>%
@@ -71,22 +72,78 @@ df_unnested$prenoms <- sapply(strsplit(df_unnested$Auteur, " "), function(x) x[1
 givenNames = findGivenNames(df_unnested$Auteur, progress = FALSE, apikey = '***********************')
 names(givenNames) <- c("id", "gender", "given_name", "proba", "country_id")
 #write.xlsx(givenNames, "D:/bdd/gender_proba.xlsx")
+givenNames <- readxl::read_excel("D:/bdd/gender_proba.xlsx")
 
 # matcher les prénoms
 df_unnested$prenoms <- tolower(df_unnested$prenoms) # mettre en minuscules 
 givenNames <- givenNames %>% # extraire valeurs uniques
   unique()
+
+# Extraire la partie à gauche du tiret "-" dans les prénoms composés
+df_unnested$prenoms <- sapply(strsplit(df_unnested$prenoms, "-"), function(x) x[1])
+
+
 df_final <- merge(df_unnested, givenNames, by.x = "prenoms", by.y = "given_name", all.x = TRUE) # matcher
-df_final$gender[df_final$proba < 0.6] <- "unisex" # modifier les probas < 0.6 à Unisexe
-df_final$gender[is.na(df_final$gender)] <- "initials" # modifier les "NA" de gender en "initials"
+# df_final$gender[df_final$proba < 0.6] <- "unisex" # modifier les probas < 0.6 à Unisexe
+
+df_final$g_prob_06 <- df_final$gender 
+df_final$g_prob_06[df_final$proba < 0.6 & df_final$proba > 0.5] <- "unisex" # modifier les probas < 0.6 à Unisexe
+# Remplacer les valeurs NA dans la colonne "gender" selon les conditions données
+df_final$g_prob_06[is.na(df_final$g_prob_06) & nchar(df_final$prenoms) <= 2] <- "initials"
+df_final$g_prob_06[is.na(df_final$g_prob_06) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
+df_final$g_prob_06[is.na(df_final$g_prob_06)] <- "undefined"
+
+df_final$g_prob_07 <- df_final$gender 
+df_final$g_prob_07[df_final$proba < 0.7 & df_final$proba > 0.5] <- "unisex" # modifier les probas < 0.6 à Unisexe
+# Remplacer les valeurs NA dans la colonne "gender" selon les conditions données
+df_final$g_prob_07[is.na(df_final$g_prob_07) & nchar(df_final$prenoms) <= 2] <- "initials"
+df_final$g_prob_07[is.na(df_final$g_prob_07) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
+df_final$g_prob_07[is.na(df_final$g_prob_07)] <- "undefined"
+
+
+df_final$g_prob_08 <- df_final$gender 
+df_final$g_prob_08[df_final$proba < 0.8 & df_final$proba > 0.5] <- "unisex" # modifier les probas < 0.6 à Unisexe
+df_final$g_prob_08[is.na(df_final$g_prob_08) & nchar(df_final$prenoms) <= 2] <- "initials"
+df_final$g_prob_08[is.na(df_final$g_prob_08) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
+df_final$g_prob_08[is.na(df_final$g_prob_08)] <- "undefined"
+
+
+df_final$g_prob_09 <- df_final$gender 
+df_final$g_prob_09[df_final$proba < 0.9 & df_final$proba > 0.5] <- "unisex" # modifier les probas < 0.6 à Unisexe
+df_final$g_prob_09[is.na(df_final$g_prob_09) & nchar(df_final$prenoms) <= 2] <- "initials"
+df_final$g_prob_09[is.na(df_final$g_prob_09) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
+df_final$g_prob_09[is.na(df_final$g_prob_09)] <- "undefined"
+
+
+df_final$g_prob_100 <- df_final$gender 
+df_final$g_prob_100[df_final$proba > 0.5 & df_final$proba < 0.99] <- "unisex" # modifier les probas < 0.6 à Unisexe
+df_final$g_prob_100[is.na(df_final$g_prob_100) & nchar(df_final$prenoms) <= 2] <- "initials"
+df_final$g_prob_100[is.na(df_final$g_prob_100) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
+df_final$g_prob_100[is.na(df_final$g_prob_100)] <- "undefined"
+
+
+# Remplacer les valeurs NA dans la colonne "gender" selon les conditions données
+df_final$gender[is.na(df_final$gender) & nchar(df_final$prenoms) <= 2] <- "initials"
+df_final$gender[is.na(df_final$gender) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
+df_final$gender[is.na(df_final$gender)] <- "undefined"
+
+
+# stats desc proba et genre
+df_final %>% 
+  tbl_summary(
+    include = c("proba", "g_prob_06", "g_prob_07", "g_prob_08", "g_prob_09", "g_prob_100")
+  
+)
+
 
 ## Analyse des données ----
 `%not_in%` <- purrr::negate(`%in%`)
 
 tb <- df_final %>%
   select(publication, gender, `Nombre de commentaires`, Année, starts_with("Journal")) %>%
-  subset(., gender %not_in% c("initials", "unisex"))
-# write.xlsx(tb, "D:/bdd/tb_finale.xlsx")
+  subset(., gender %not_in% c("initials", "unisex", "undefined"))
+
+write.xlsx(tb, "D:/bdd/tb_finale_gender.xlsx")
 
 # Calcul de la proportion des femmes par publication
 tbfin <- tb %>%
