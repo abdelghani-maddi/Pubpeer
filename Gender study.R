@@ -44,21 +44,17 @@ rtw <- readxl::read_excel("D:/bdd/RWDBDNLD04242023.xlsx")
 ### Extraction colonnes d'intérêt et suppression des autres données
 df <- data_pub %>%
   select(publication, Auteurs, Pays_institution, `Nombre de commentaires`, Année, starts_with("Journal"))
+### Extraction colonnes d'intérêt et suppression des autres données
+df <- bdd_pub %>%
+  select(publication, Auteurs, Pays_institution, `Nombre de commentaires`, Année, starts_with("Journal"))
 ### Supprimer les données
 rm(data_pub)
 
 # Pivoter les noms des auteurs par autant de lignes que d'auteurs et dupliquer l'identifiant "publication"
 df_unnested <- df %>%
-  mutate(Auteurs_extraits = str_extract_all(Auteurs, "'([\\p{L}\\s-]*)'")) %>%
-  unnest(Auteurs_extraits) %>%
+  mutate(prenoms = str_extract_all(Auteurs, "(?<=')[A-Za-z]+")) %>%
+  unnest(prenoms) %>%
   select(-Auteurs)
-# Renommer la nouvelle colonne "Auteurs"
-names(df_unnested)[names(df_unnested) == "Auteurs_extraits"] <- "Auteur"
-# Supprimer les guillemets simples des noms d'auteurs
-df_unnested$Auteur <- gsub("'", "", df_unnested$Auteur)
-
-# Extraire le prénom de chaque nom d'auteur
-df_unnested$prenoms <- sapply(strsplit(df_unnested$Auteur, " "), function(x) x[1])
 
 # Prédire le genre pour chaque prénom
 # # Exemple de données avec une colonne "prenoms" contenant les prénoms
@@ -79,12 +75,26 @@ df_unnested$prenoms <- tolower(df_unnested$prenoms) # mettre en minuscules
 givenNames <- givenNames %>% # extraire valeurs uniques
   unique()
 
-# Extraire la partie à gauche du tiret "-" dans les prénoms composés
-df_unnested$prenoms <- sapply(strsplit(df_unnested$prenoms, "-"), function(x) x[1])
-
+# ajouter une colonne ordre des auteurs
+df_unnested <- df_unnested %>%
+  group_by(publication) %>%
+  mutate(order_auteur = row_number())
 
 df_final <- merge(df_unnested, givenNames, by.x = "prenoms", by.y = "given_name", all.x = TRUE) # matcher
 # df_final$gender[df_final$proba < 0.6] <- "unisex" # modifier les probas < 0.6 à Unisexe
+
+# aJOUTER UNE COLONNE POUR INDIQUER SI LES FEMMES SE TROUVENT EN PREMIERE OU DERNIERE POSITION
+df_unnested <- df_unnested %>%
+  group_by(publication) %>%
+  mutate(woman_leader = ifelse((numero_ligne == min(numero_ligne) | numero_ligne == max(numero_ligne)) & proba >= 0.6, 1, 0))
+
+# remplacer tous les NA de la colonne woman_leader par 0
+df_final <- df_final %>%
+  mutate(woman_leader = replace(woman_leader, is.na(woman_leader), 0))
+
+# retirer une colonne qui n'a pas de sens
+df_final <- df_final %>%
+  select(-Prenom)
 
 df_final$g_prob_06 <- df_final$gender 
 df_final$g_prob_06[df_final$proba < 0.6 & df_final$proba > 0.5] <- "unisex" # modifier les probas < 0.6 à Unisexe
@@ -127,6 +137,30 @@ df_final$gender[is.na(df_final$gender) & nchar(df_final$prenoms) <= 2] <- "initi
 df_final$gender[is.na(df_final$gender) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
 df_final$gender[is.na(df_final$gender)] <- "undefined"
 
+# Compter le nombre d'auteurs par publication
+nbaut <- df_final %>%
+  group_by(publication) %>%
+  summarise(nb_aut = n_distinct(prenoms))
+
+# Ajouter à la table des publications
+df_nb_aut <- merge(df_final, nbaut, by.x = "publication", by.y = "publication", all.x = TRUE) # matcher
+
+
+
+# Etudier l'évolution par type par année, toutes disciplines confondues
+# Ajouter la variable
+df_nb_aut$Gtype <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "Man alone", 
+                          ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut == 1, "Woman alone",
+                                 ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut > 1, "Collab. men only",
+                                        ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut > 1, "Collab. women only",
+                                               ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1, "Collab. men-women", NA)
+                                        )
+                                 )
+                          )
+)
+
+write.xlsx(df_nb_aut, "D:/bdd/tb_finale_gender.xlsx")
+
 
 # stats desc proba et genre
 df_final %>% 
@@ -137,14 +171,15 @@ df_final %>%
 
 
 ## Analyse des données ----
-`%not_in%` <- purrr::negate(`%in%`)
+# `%not_in%` <- purrr::negate(`%in%`)
+# 
+# tb <- df_final %>%
+#   select(publication, gender, `Nombre de commentaires`, Année, starts_with("Journal")) #%>%
+#   #subset(., gender %not_in% c("initials", "unisex", "undefined"))
 
-tb <- df_final %>%
-  select(publication, gender, `Nombre de commentaires`, Année, starts_with("Journal")) %>%
-  subset(., gender %not_in% c("initials", "unisex", "undefined"))
 
-write.xlsx(tb, "D:/bdd/tb_finale_gender.xlsx")
-
+library(readxl)
+tb <- read_excel("D:/bdd/tb_finale_gender.xlsx")
 # Calcul de la proportion des femmes par publication
 tbfin <- tb %>%
   group_by(publication) %>%

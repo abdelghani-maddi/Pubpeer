@@ -32,11 +32,23 @@ dbListTables(con)
 
 ### Récupération des données ----
 df <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/tb_finale.xlsx")
+
+df <- readxl::read_excel("D:/bdd/tb_finale_gender.xlsx")
+
 bdd_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
+
+bdd_pub <- readxl::read_excel("D:/bdd/data_pub.xlsx")
 
 reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires_2')
 # reqsql= paste('select * from data_commentaires_2')
 data_comm = dbGetQuery(con,reqsql)
+
+data_comm <- readxl::read_excel("D:/bdd/data_comm2.xlsx")
+
+data_comm <- data_comm %>%
+  select(inner_id, publication, DateCreated)
+ names(data_comm) = c("inner_id", "publication", "date_com")
+
 # Transformer le format de la date du commentaire
 data_comm$date_com <- as.Date.character(data_comm$date_com)
 # extraire l'année depuis la colonne "date"
@@ -50,44 +62,9 @@ data_comm <- data_comm %>%
 
 
 
-### Extraction colonnes d'intérêt et suppression des autres données
-aut <- bdd_pub %>%
-  select(publication, Auteurs, Pays_institution, Nombre.de.commentaires, Année, starts_with("Journal"))
-
-# Pivoter les noms des auteurs par autant de lignes que d'auteurs et dupliquer l'identifiant "publication"
-df_unnested <- aut %>%
-  mutate(Auteurs_extraits = str_extract_all(Auteurs, "'([\\p{L}\\s-]*)'")) %>%
-  unnest(Auteurs_extraits) %>%
-  select(-Auteurs)
-# Renommer la nouvelle colonne "Auteurs"
-names(df_unnested)[names(df_unnested) == "Auteurs_extraits"] <- "Auteur"
-# Supprimer les guillemets simples des noms d'auteurs
-df_unnested$Auteur <- gsub("'", "", df_unnested$Auteur)
-
-# Extraire le prénom de chaque nom d'auteur
-df_unnested$prenoms <- sapply(strsplit(df_unnested$Auteur, " "), function(x) x[1])
 
 
-# Compter le nombre d'auteurs par publication
-nbaut <- df_unnested %>%
-  group_by(publication) %>%
-  summarise(nb_aut = n_distinct(Auteur))
 
-# Ajouter à la table des publications
-df_nb_aut <- merge(df, nbaut, by.x = "publication", by.y = "publication", all.x = TRUE) # matcher
-
-
-# Etudier l'évolution par type par année, toutes disciplines confondues
-# Ajouter la variable
-df_nb_aut$Gtype <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "Man alone", 
-                          ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut == 1, "Woman alone",
-                                 ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut > 1, "Collab. men only",
-                                        ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut > 1, "Collab. women only",
-                                               ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1, "Collab. men-women", NA)
-                                        )
-                                 )
-                          )
-)
 # Nombre par annee de publication
 nb_ann <- df_nb_aut %>%
   select(publication, Année, Gtype) %>%
