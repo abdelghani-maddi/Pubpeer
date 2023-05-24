@@ -84,17 +84,22 @@ df_final <- merge(df_unnested, givenNames, by.x = "prenoms", by.y = "given_name"
 # df_final$gender[df_final$proba < 0.6] <- "unisex" # modifier les probas < 0.6 à Unisexe
 
 # aJOUTER UNE COLONNE POUR INDIQUER SI LES FEMMES SE TROUVENT EN PREMIERE OU DERNIERE POSITION
-df_unnested <- df_unnested %>%
+df_final <- df_final %>%
   group_by(publication) %>%
-  mutate(woman_leader = ifelse((numero_ligne == min(numero_ligne) | numero_ligne == max(numero_ligne)) & proba >= 0.6, 1, 0))
+  mutate(woman_leader = case_when(
+    gender == "female" & proba >= 0.6 & (order_auteur == min(order_auteur) | order_auteur == max(order_auteur)) ~ 1,
+    TRUE ~ 0
+  ))
 
-# remplacer tous les NA de la colonne woman_leader par 0
 df_final <- df_final %>%
-  mutate(woman_leader = replace(woman_leader, is.na(woman_leader), 0))
+  group_by(publication) %>%
+  mutate(woman_leader = ifelse(any(woman_leader == 1), 1, woman_leader))
 
-# retirer une colonne qui n'a pas de sens
-df_final <- df_final %>%
-  select(-Prenom)
+# stats desc juste pour vérif
+df_test <- df_final %>%
+  select(publication, woman_leader) %>%
+  unique()
+
 
 df_final$g_prob_06 <- df_final$gender 
 df_final$g_prob_06[df_final$proba < 0.6 & df_final$proba > 0.5] <- "unisex" # modifier les probas < 0.6 à Unisexe
@@ -147,21 +152,6 @@ df_nb_aut <- merge(df_final, nbaut, by.x = "publication", by.y = "publication", 
 
 
 
-# Etudier l'évolution par type par année, toutes disciplines confondues
-# Ajouter la variable
-df_nb_aut$Gtype <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "Man alone", 
-                          ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut == 1, "Woman alone",
-                                 ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut > 1, "Collab. men only",
-                                        ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut > 1, "Collab. women only",
-                                               ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1, "Collab. men-women", NA)
-                                        )
-                                 )
-                          )
-)
-
-write.xlsx(df_nb_aut, "D:/bdd/tb_finale_gender.xlsx")
-
-
 # stats desc proba et genre
 df_final %>% 
   tbl_summary(
@@ -171,25 +161,46 @@ df_final %>%
 
 
 ## Analyse des données ----
-# `%not_in%` <- purrr::negate(`%in%`)
-# 
-# tb <- df_final %>%
-#   select(publication, gender, `Nombre de commentaires`, Année, starts_with("Journal")) #%>%
-#   #subset(., gender %not_in% c("initials", "unisex", "undefined"))
+`%not_in%` <- purrr::negate(`%in%`)
 
-
-library(readxl)
-tb <- read_excel("D:/bdd/tb_finale_gender.xlsx")
 # Calcul de la proportion des femmes par publication
-tbfin <- tb %>%
+tbfin <- df_nb_aut %>%
+  select(publication, gender, `Nombre de commentaires`, Année, starts_with("Journal")) %>%
+  subset(., gender %not_in% c("initials", "unisex", "undefined")) %>%
   group_by(publication) %>%
   summarize(female_part = mean(gender == "female", na.rm = TRUE))
 
 # faire une jointure
-tb_final <- merge(tb, tbfin, by.x = "publication", by.y = "publication", all.x = TRUE) %>% # matcher
-  select(-gender) %>%
-  unique()
+df_nb_aut <- merge(df_nb_aut, tbfin, by.x = "publication", by.y = "publication", all.x = TRUE) 
+
+
+
+# Etudier l'évolution par type par année, toutes disciplines confondues
+# Ajouter la variable
+df_nb_aut$Gtype <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "Man alone", 
+                          ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut == 1, "Woman alone",
+                                 ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut > 1, "Collab. men only",
+                                        ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut > 1, "Collab. women only",
+                                               ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1 & df_nb_aut$woman_leader==1, "Collab. men-women w lead", 
+                                                      ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1 & df_nb_aut$woman_leader==0, "Collab. men-women m lead", NA)
+                                               )
+                                        )
+                                 )
+                          )
+)
+
+
+
+
+
+write.xlsx(df_nb_aut, "D:/bdd/tb_finale_gender.xlsx")
+
+
+
 # write.xlsx(tb_final, "D:/bdd/tb_finale.xlsx")
+
+
+
 
 tb_ech <- subset(tb_final, tb_final$`Nombre de commentaires`>1)
 
