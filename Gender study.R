@@ -181,12 +181,14 @@ df_nb_aut$Gtype <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "M
                           ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut == 1, "Woman alone",
                                  ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut > 1, "Collab. men only",
                                         ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut > 1, "Collab. women only",
-                                               ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1 & df_nb_aut$woman_leader==1, "Collab. men-women w lead", 
-                                                      ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1 & df_nb_aut$woman_leader==0, "Collab. men-women m lead", NA)
+                                               ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut ==2 & df_nb_aut$woman_leader==1, "Collab. men-women 2 auteurs", 
+                                                    ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1 & df_nb_aut$woman_leader==1, "Collab. men-women w lead", 
+                                                          ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1 & df_nb_aut$woman_leader==0, "Collab. men-women m lead", NA)
                                                )
                                         )
                                  )
-                          )
+                            )
+                       )
 )
 
 
@@ -195,7 +197,9 @@ df_nb_aut$Gtype <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "M
 
 write.xlsx(df_nb_aut, "D:/bdd/tb_finale_gender.xlsx")
 
-
+df_stats <- df_nb_aut %>%
+  select(publication, Gtype) %>%
+  unique()
 
 # write.xlsx(tb_final, "D:/bdd/tb_finale.xlsx")
 

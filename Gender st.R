@@ -32,23 +32,11 @@ dbListTables(con)
 
 ### Récupération des données ----
 df <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/tb_finale.xlsx")
-
-df <- readxl::read_excel("D:/bdd/tb_finale_gender.xlsx")
-
 bdd_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
-
-bdd_pub <- readxl::read_excel("D:/bdd/data_pub.xlsx")
 
 reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires_2')
 # reqsql= paste('select * from data_commentaires_2')
 data_comm = dbGetQuery(con,reqsql)
-
-data_comm <- readxl::read_excel("D:/bdd/data_comm2.xlsx")
-
-data_comm <- data_comm %>%
-  select(inner_id, publication, DateCreated)
- names(data_comm) = c("inner_id", "publication", "date_com")
-
 # Transformer le format de la date du commentaire
 data_comm$date_com <- as.Date.character(data_comm$date_com)
 # extraire l'année depuis la colonne "date"
@@ -59,10 +47,6 @@ data_comm <- data_comm %>%
   select(publication, annee) %>%
   group_by(publication) %>%
   summarise(annee_min = min(annee))
-
-
-
-
 
 
 # Nombre par annee de publication
