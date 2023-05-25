@@ -5,6 +5,7 @@ rm(list = ls()) #supprimer tous les objets
 # https://journal.r-project.org/archive/2016/RJ-2016-002/index.html 
 # https://kalimu.github.io/#contact
 
+
 library(tidyverse)
 library(questionr)
 library(RPostgres)
@@ -171,13 +172,17 @@ ggplot(relative_prop) +
 gender_proba <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/Gender/gender_proba.xlsx")
 
 df_unnested$prenoms <- tolower(df_unnested$prenoms)
+df_gender$prenoms <- tolower(df_gender$prenoms)
 
-df_stats_glob <- df_unnested %>%
+df_stats_glob <- df_gender %>%
   select(publication, prenoms)
 
 df_stats_glob_m <- merge(df_stats_glob, gender_proba, by.x = "prenoms", by.y = "given_name", all.x = TRUE) # matcher
 df_stats_glob_m$gender[df_stats_glob_m$proba < 0.6] <- "unisex" # modifier les probas < 0.6 à Unisexe
 df_stats_glob_m$gender[is.na(df_stats_glob_m$gender)] <- "initials" # modifier les "NA" de gender en "initials"
+
+df_stats_glob_m <- df_stats_glob_m %>%
+  unique()
 
 # Statistiques globales sur l'identification du genre -----
 ## Enregister la table pour ne pas refaire toutes les étapes plus haut pour faire les stats desc
