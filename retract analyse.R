@@ -31,7 +31,34 @@ dbListTables(con)
 ### Lecture des données ----
 
 df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
+#write.xlsx(df_retract, "/Users/maddi/Documents/Pubpeer Gender/df_retract.xlsx")
 reason_agr <- read_excel("~/Documents/Pubpeer Gender/reasons_retract aggreg.xlsx")
+
+# dupliquer la colonne Gtype en Gtype2, en modifiant les modalités selon ces conditions : 
+# pour les valeurs de Gtype différentes de : ("Woman alone", "Man alone", "Collab. men only", "Collab. women only"), 
+# si w_corresp=1, Gtype2="Collab. men-women . w corr", si m_corresp=1, Gtype2="Collab. men-women . m corr"
+# Ajouter le flag femme auteur de correspondance (proxy : 1er auteur)
+df_retract <- df_retract %>%
+  mutate(w_corresp = ifelse(order_auteur == 1 & g_prob_06 == "female", 1, 0))
+
+# Ajouter le flag homme auteur de correspondance (proxy : 1er auteur)
+df_retract <- df_retract %>%
+  mutate(m_corresp = ifelse(order_auteur == 1 & g_prob_06 == "male", 1, 0))
+
+
+##
+df_retract <- df_retract %>%
+  mutate(Gtype2 = case_when(
+    Gtype %in% c("Woman alone", "Man alone", "Collab. men only", "Collab. women only") ~ Gtype,
+    w_corresp == 1 ~ "Collab. men-women . w corr",
+    m_corresp == 1 ~ "Collab. men-women . m corr",
+    TRUE ~ Gtype
+  ))
+
+
+## supprimer toutes les lignes pour lesquelles w_corresp et m_corresp = 0 
+df_retract <- df_retract %>%
+  filter(w_corresp != 0 | m_corresp != 0)
 
 ## décortiquer les raisons
 # éclater les raisons
@@ -53,7 +80,7 @@ reason_agr <- read_excel("~/Documents/Pubpeer Gender/reasons_retract aggreg.xlsx
 # Matcher les raisons avec la bdd sur le gender
 
 df_retract <- df_retract %>%
-  select(publication, Gtype, ID_retractionwatch, Reason) %>%
+  select(publication, Gtype2, ID_retractionwatch, Reason) %>%
   unique()
 # Merger les deux pour avoir les raisons aggrégées
 df_retract_agr <- merge(df_retract, reason_agr, by = "Reason")
@@ -62,8 +89,8 @@ df_retract_agr <- merge(df_retract, reason_agr, by = "Reason")
 
 df_retract_agr %>%
   tbl_summary(
-    include = c(reason_aggreg, Gtype),
-    by = Gtype,
+    include = c(reason_aggreg, Gtype2),
+    by = Gtype2,
     sort = list(everything() ~ "frequency"),
     statistic = list(
       all_continuous() ~ c("{N_obs}") 
@@ -75,9 +102,94 @@ df_retract_agr %>%
 ## exporter pour calculer rapidement les double ratios
 
 reason_agreg <- df_retract_agr %>%
-  select(reason_aggreg, Gtype) %>%
+  select(reason_aggreg, Gtype2) %>%
   table() %>%
   data.frame()
-write.xlsx(reason_agreg, "~/Documents/Pubpeer Gender/reasons_retract_stats.xlsx")
+write.xlsx(reason_agreg, "~/Documents/Pubpeer Gender/reasons_retract_stats2.xlsx")
 
+
+
+
+#### faire la même analyse, mais avec la variable femme auteur de correspondance au lieu de 1er dernier auteur ----
+
+# Matcher les raisons avec la bdd sur le gender
+
+df_retract <- df_retract %>%
+  select(publication, Gtype2, ID_retractionwatch, Reason) %>%
+  unique()
+# Merger les deux pour avoir les raisons aggrégées
+df_retract_agr <- merge(df_retract, reason_agr, by = "Reason")
+
+# fair les calculs
+
+df_retract_agr %>%
+  tbl_summary(
+    include = c(reason_aggreg, Gtype2),
+    by = Gtype2,
+    sort = list(everything() ~ "frequency"),
+    statistic = list(
+      all_continuous() ~ c("{N_obs}") 
+    )
+  ) %>%
+  add_overall(last = TRUE) #, col_label = "**Ensemble** (effectif total: {N})")
+
+
+######
+df <- df_retract %>%
+  select(publication, Gtype2, is_retracted) %>%
+  unique()
+
+
+df %>% 
+  tbl_summary(
+    include = c(publication, Gtype2, is_retracted),
+    by = is_retracted,
+    sort = list(everything() ~ "frequency"),
+    statistic = list(
+      all_continuous() ~ c("{N_obs}") 
+    )
+  ) %>%
+  add_overall()  %>%
+  # adding spanning header
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Is retracted**") %>%
+  add_p() %>%
+  separate_p_footnotes()
+
+
+
+
+### Part dans les rétractations / part dans le total (par type de collab) ----
+
+# Calculate the total number of rows in the dataframe
+total <- nrow(df)
+
+# Create a table of counts for each "Gtype" value
+table_all <- table(df$Gtype2)
+
+# Create a table of counts for each "Gtype" value where "Retracted" is "True"
+table_retracted <- table(df$Gtype2[df$is_retracted == 1])
+
+# Calculate the relative proportion of each "Gtype" value in the entire dataframe
+prop_all <- table_all / total
+
+# Calculate the relative proportion of each "Gtype" value for "Retracted" = TRUE
+prop_retracted <- table_retracted / sum(df$is_retracted == 1)
+
+# Divide the relative proportions for "Retracted" = TRUE by those in the entire dataframe
+relative_prop <- as.data.frame(prop_retracted / prop_all)
+
+# Print the resulting table of relative proportions
+relative_prop
+
+
+## représentation graphique
+ggplot(relative_prop, aes(x = reorder(Var1, Freq), y = Freq)) + 
+  geom_bar(stat = "identity") +
+  geom_col(fill = "#2C81C9") +
+  labs(
+    x = "Men-women collaboration type",
+    y = "% in retracted / % in overall"
+  ) +
+  coord_flip() +
+  theme_light()
 
