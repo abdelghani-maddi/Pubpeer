@@ -62,10 +62,11 @@ df_retract <- df_retract %>%
 
 ## décortiquer les raisons
 # éclater les raisons
-df_retract <- df_retract %>%
+df_retract_reason <- df_retract %>%
   separate_rows(Reason, sep = ";")%>%
   filter(Reason != "") %>%
   mutate(Reason = str_replace(Reason, "\\+", ""))
+
 
 # calcul de la fréquence
 freq_reasons <- freq(df_retract$Reason) %>%
@@ -84,6 +85,24 @@ df_retract <- df_retract %>%
   unique()
 # Merger les deux pour avoir les raisons aggrégées
 df_retract_agr <- merge(df_retract, reason_agr, by = "Reason")
+
+
+# coocuurences des raisons (pour aider à l'interprétation)
+# Calculer les co-occurrences des raisons
+df_cooccurrences <- df_retract_agr %>%
+  select(publication, reason_aggreg) %>%
+  unique() %>%
+  inner_join(df_retract_agr, by = "publication") %>%
+  filter(reason_aggreg.x != reason_aggreg.y) %>%
+  group_by(reason_aggreg.x, reason_aggreg.y) %>%
+  summarise(nb_publication = n()) %>%
+  ungroup()
+
+# Renommer les colonnes
+colnames(df_cooccurrences) <- c("Reason_1", "Reason_2", "nb_publication")
+# Exporter
+write.xlsx(df_cooccurrences, "~/Documents/Pubpeer Gender/rdf_cooccurrences_reasons.xlsx")
+
 
 # fair les calculs
 
@@ -180,6 +199,7 @@ relative_prop <- as.data.frame(prop_retracted / prop_all)
 
 # Print the resulting table of relative proportions
 relative_prop
+write.xlsx(relative_prop, "~/Documents/Pubpeer Gender/relative_prop.xlsx")
 
 
 ## représentation graphique
@@ -192,4 +212,76 @@ ggplot(relative_prop, aes(x = reorder(Var1, Freq), y = Freq)) +
   ) +
   coord_flip() +
   theme_light()
+
+#### Regression logistique ----
+df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
+
+
+# Ajouter le flag femme auteur de correspondance (proxy : 1er auteur)
+df_retract <- df_retract %>%
+  mutate(w_corresp = ifelse(order_auteur == 1 & g_prob_06 == "female", 1, 0))
+
+# Ajouter le flag homme auteur de correspondance (proxy : 1er auteur)
+df_retract <- df_retract %>%
+  mutate(m_corresp = ifelse(order_auteur == 1 & g_prob_06 == "male", 1, 0))
+
+##
+df_retract <- df_retract %>%
+  mutate(Gtype2 = case_when(
+    Gtype %in% c("Woman alone", "Man alone", "Collab. men only", "Collab. women only") ~ Gtype,
+    w_corresp == 1 ~ "Collab. men-women . w corr",
+    m_corresp == 1 ~ "Collab. men-women . m corr",
+    TRUE ~ Gtype
+  ))
+
+
+# bdd_regression
+bdd_reg1 <- df_retract %>%
+  select(publication, nb_aut, Gtype2, is_retracted)
+
+
+# Extraire l'information sur l'OA
+# bdd_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
+row_data = data.frame(bdd_pub$publication,((bdd_pub$Open_Access)))
+names(row_data) = c("publication","oa")
+# Diviser la colonne "oa" en deux colonnes distinctes "is_oa" et "oa_status"
+row_data <- tidyr::separate(row_data, col = oa, into = c("is_oa", "oa_status"), sep = ", ")
+row_data$is_oa <- gsub("{'is_oa': ", "", row_data$is_oa, fixed = TRUE)
+row_data$oa_status <- gsub("'oa_status': ", "", row_data$oa_status, fixed = TRUE)
+
+row_data <- row_data %>%
+  select(publication, is_oa) %>%
+  unique()
+
+## 
+bdd_reg <- bdd_reg1 %>%
+  left_join(., row_data, by = "publication") %>%
+  unique()
+
+
+## Recoding bdd_regr$is_oa
+bdd_reg$is_oa <- bdd_reg$is_oa %>%
+  fct_recode(
+    NULL = "",
+    "0" = "False",
+    "1" = "True"
+  )
+
+# Pivoter le type de collabe H-F pour n'analyse
+bdd_regr <- pivot_wider(bdd_reg, names_from = Gtype2, values_from = Gtype2, values_fn = list(Gtype = function(x) 1), 
+                        values_fill = list(Gtype2 = 0))
+
+
+## récupérer les disciplines
+reqsql= paste('select distinct publication, discipline from commentaires_par_discipline')
+data_disc = dbGetQuery(con,reqsql)
+
+## ajout des disciplines
+bdd_reg <- bdd_reg %>%
+  left_join(., data_disc, by = "publication") %>%
+  subset(., !is.na(discipline))
+
+# Pivoter la discipline pour n'analyse
+bdd_reg <- pivot_wider(bdd_reg, names_from = discipline, values_from = discipline, values_fn = list(discipline = function(x) 1), 
+                        values_fill = list(discipline = 0))
 
