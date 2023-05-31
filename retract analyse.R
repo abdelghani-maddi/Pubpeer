@@ -234,6 +234,9 @@ df_retract <- df_retract %>%
     TRUE ~ Gtype
   ))
 
+## supprimer toutes les lignes pour lesquelles w_corresp et m_corresp = 0 
+df_retract <- df_retract %>%
+  filter(w_corresp != 0 | m_corresp != 0)
 
 # bdd_regression
 bdd_reg1 <- df_retract %>%
@@ -268,20 +271,190 @@ bdd_reg$is_oa <- bdd_reg$is_oa %>%
   )
 
 # Pivoter le type de collabe H-F pour n'analyse
-bdd_regr <- pivot_wider(bdd_reg, names_from = Gtype2, values_from = Gtype2, values_fn = list(Gtype = function(x) 1), 
+bdd_regr <- pivot_wider(bdd_reg, names_from = Gtype2, values_from = Gtype2, values_fn = list(Gtype2 = function(x) 1), 
                         values_fill = list(Gtype2 = 0))
 
 
 ## récupérer les disciplines
-reqsql= paste('select distinct publication, discipline from commentaires_par_discipline')
-data_disc = dbGetQuery(con,reqsql)
+# reqsql= paste('select distinct publication, discipline from commentaires_par_discipline')
+# data_disc = dbGetQuery(con,reqsql)
+
+
+row_data_dis = data.frame(bdd_pub$publication,((bdd_pub$Journal_Domaines_WOS)))
+names(row_data_dis) = c("publication","discipline")
+
+clean_data =  data.frame(row_data_dis$publication, gsub("  ", " ",(str_replace_all((str_split(row_data_dis$JDW, '",' , simplify = TRUE)), "[[:punct:]]", ""))))
+names(clean_data) = c("publication","discipline")
+
+data_JD <- subset(clean_data, discipline != "")
+
 
 ## ajout des disciplines
-bdd_reg <- bdd_reg %>%
-  left_join(., data_disc, by = "publication") %>%
+bdd_regr <- bdd_regr %>%
+  left_join(., data_JD, by = "publication") %>%
   subset(., !is.na(discipline))
 
+
+## Recoding bdd_regr$discipline
+bdd_regr$discipline <- bdd_regr$discipline %>%
+  fct_recode(
+    "Arts Humanities" = " Arts Humanities",
+    "Life Sciences Biomedicine" = " Life Sciences Biomedicine",
+    "Multidisciplinary" = " Multidisciplinary",
+    "Physical Sciences" = " Physical Sciences",
+    "Social Sciences" = " Social Sciences",
+    "Technology" = " Technology"
+  )
+
+
 # Pivoter la discipline pour n'analyse
-bdd_reg <- pivot_wider(bdd_reg, names_from = discipline, values_from = discipline, values_fn = list(discipline = function(x) 1), 
+bdd_regr <- pivot_wider(bdd_regr, names_from = discipline, values_from = discipline, values_fn = list(discipline = function(x) 1), 
                         values_fill = list(discipline = 0))
+
+
+
+
+# Ajuster un modèle de régression logistique
+modele_logit1 <- glm(is_retracted ~ `Collab. men-women . m corr` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women . w corr` ,
+                     data = bdd_regr, 
+                     family = binomial)
+summary(modele_logit1)
+# Calculer le coefficient de détermination R^2
+R2 <- 1 - (modele_logit1$deviance / modele_logit1$null.deviance)
+cat("R^2 : ", R2, "\n")
+
+results <- broom::tidy(modele_logit1)
+write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit1.xlsx")
+
+
+## variables de controle
+modele_logit2 <- glm(is_retracted ~ `Collab. men-women . m corr` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women . w corr` +
+                       log(nb_aut) 
+                     , 
+                     data = bdd_regr, 
+                     family = binomial)
+summary(modele_logit2)
+# Calculer le coefficient de détermination R^2
+R2 <- 1 - (modele_logit2$deviance / modele_logit2$null.deviance)
+cat("R^2 : ", R2, "\n")
+
+results <- broom::tidy(modele_logit2)
+write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit2.xlsx")
+
+
+## variables de controle
+modele_logit2b<- glm(is_retracted ~ `Collab. men-women . m corr` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women . w corr` +
+                       log(nb_aut) +
+                       is_oa 
+                     , 
+                     data = bdd_regr, 
+                     family = binomial)
+summary(modele_logit2b)
+# Calculer le coefficient de détermination R^2
+R2 <- 1 - (modele_logit2b$deviance / modele_logit2b$null.deviance)
+cat("R^2 : ", R2, "\n")
+
+results <- broom::tidy(modele_logit2b)
+write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit2b.xlsx")
+
+
+## variables de controle : discipline
+modele_logit3 <- glm(is_retracted ~ `Collab. men-women . m corr` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women . w corr` +
+                       log(nb_aut) +
+                       is_oa +
+                       bdd_regr$`Social Sciences` +
+                       bdd_regr$`Physical Sciences` +
+                       bdd_regr$Technology +
+                       bdd_regr$`Arts Humanities`, 
+                     data = bdd_regr, 
+                     family = binomial)
+summary(modele_logit3)
+
+# Calculer le coefficient de détermination R^2
+R2 <- 1 - (modele_logit3$deviance / modele_logit3$null.deviance)
+cat("R^2 : ", R2, "\n")
+
+# Afficher l'AIC et le BIC du modèle
+AIC(modele_logit3)
+BIC(modele_logit3)
+
+
+results <- broom::tidy(modele_logit3)
+write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit3.xlsx")
+
+## 
+## Cutting bdd_regr$nb_aut into bdd_regr$nb_aut_rec
+bdd_regr$nb_aut_rec <- cut(bdd_regr$nb_aut,
+  include.lowest = TRUE,
+  right = FALSE,
+  dig.lab = 4,
+  breaks = c(1, 3.5, 6.5, 10.5, 163)
+)
+
+
+
+
+## 
+bdd_regr %>%
+  select(publication, nb_aut_rec, is_retracted) %>%
+  tbl_summary(
+    include = c(publication, nb_aut_rec, is_retracted),
+    by = is_retracted,
+    sort = list(everything() ~ "frequency"),
+    statistic = list(
+      all_continuous() ~ c("{N_obs}") 
+    )
+  )
+
+## 
+
+# summary(modele_logit3)
+# residuals <- residuals(modele_logit3, type = "deviance")
+# max_residual_index <- which.max(residuals)
+# observation_ID <- bdd_regr$publication[max_residual_index]
+
+# Calculer la matrice de corrélation des variables explicatives
+mcor <- cor(bdd_regr[, c("Collab. men-women . m corr" , "Man alone" , "Collab. men only" , "Woman alone" , "Collab. men-women . w corr" ,
+                     "nb_aut",
+                     "Social Sciences" ,
+                     "Physical Sciences" ,
+                     "Technology" ,
+                     "Arts Humanities",
+                     "Life Sciences Biomedicine")]
+                  , method = c("spearman")
+)
+
+# Afficher la matrice de corrélation
+corrplot::corrplot(mcor, type="upper", order="hclust", tl.col="black", tl.srt=45)
+
+
+
+
+
+
+## variables de controle : discipline
+bdd_regr_lim <- bdd_regr %>%
+  subset(., nb_aut <100)
+
+modele_logit3 <- glm(is_retracted ~ `Collab. men-women . m corr` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women . w corr` +
+                       log(nb_aut) +
+                       is_oa +
+                       `Social Sciences` +
+                       `Physical Sciences` +
+                       Technology +
+                       `Arts Humanities`, 
+                     data = bdd_regr_lim, 
+                     family = binomial)
+summary(modele_logit3)
+
+# Calculer le coefficient de détermination R^2
+R2 <- 1 - (modele_logit3$deviance / modele_logit3$null.deviance)
+cat("R^2 : ", R2, "\n")
+
+##
+# Calculer les statistiques descriptives pour nb_aut selon is_retracted
+stats_descriptives <- aggregate(nb_aut ~ is_retracted, data = bdd_regr, FUN = function(x) c(min = min(x), max = max(x), moyenne = mean(x), mediane = median(x), ecart_type = sd(x)))
+
+# Afficher les statistiques descriptives
+print(stats_descriptives)
 
