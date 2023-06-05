@@ -322,6 +322,10 @@ summary(modele_logit1)
 # Calculer le coefficient de détermination R^2
 R2 <- 1 - (modele_logit1$deviance / modele_logit1$null.deviance)
 cat("R^2 : ", R2, "\n")
+# Afficher l'AIC et le BIC du modèle
+AIC(modele_logit1)
+BIC(modele_logit1)
+
 
 results <- broom::tidy(modele_logit1)
 write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit1.xlsx")
@@ -337,6 +341,9 @@ summary(modele_logit2)
 # Calculer le coefficient de détermination R^2
 R2 <- 1 - (modele_logit2$deviance / modele_logit2$null.deviance)
 cat("R^2 : ", R2, "\n")
+# Afficher l'AIC et le BIC du modèle
+AIC(modele_logit2)
+BIC(modele_logit2)
 
 results <- broom::tidy(modele_logit2)
 write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit2.xlsx")
@@ -353,6 +360,9 @@ summary(modele_logit2b)
 # Calculer le coefficient de détermination R^2
 R2 <- 1 - (modele_logit2b$deviance / modele_logit2b$null.deviance)
 cat("R^2 : ", R2, "\n")
+# Afficher l'AIC et le BIC du modèle
+AIC(modele_logit2b)
+BIC(modele_logit2b)
 
 results <- broom::tidy(modele_logit2b)
 write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit2b.xlsx")
@@ -380,7 +390,7 @@ BIC(modele_logit3)
 
 
 results <- broom::tidy(modele_logit3)
-write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit3.xlsx")
+write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit3b.xlsx")
 
 ## 
 ## Cutting bdd_regr$nb_aut into bdd_regr$nb_aut_rec
@@ -458,3 +468,36 @@ stats_descriptives <- aggregate(nb_aut ~ is_retracted, data = bdd_regr, FUN = fu
 # Afficher les statistiques descriptives
 print(stats_descriptives)
 
+
+
+###
+# stats desc proba et genre
+df_gender %>% 
+  tbl_summary(
+    include = c("proba", "g_prob_06", "g_prob_07", "g_prob_08", "g_prob_09", "g_prob_100")
+    
+  )
+
+
+#### Faire du compte fractionnaire pour les raisons ----
+
+
+## décortiquer les raisons
+# éclater les raisons
+# df_retract_reason <- df_retract %>%
+#   separate_rows(Reason, sep = ";")%>%
+#   filter(Reason != "") %>%
+#   mutate(Reason = str_replace(Reason, "\\+", ""))
+
+
+df_reasons <- df_retract_reason %>%
+  select(publication, Reason, Gtype2) %>%
+  group_by(publication) %>%
+  mutate(frac_reason = 1/n())
+
+# sum en fonction de raison et gtype2
+df_sum_reason <- df_reasons %>%
+  group_by(Reason, Gtype2) %>%
+  summarise(sum_frac_reason = sum(frac_reason))
+
+write.xlsx(df_sum_reason, "~/Documents/Pubpeer Gender/frac_raisons.xlsx")
