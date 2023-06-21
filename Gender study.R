@@ -40,10 +40,11 @@ rtw <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/Gender/RWDB
 data_pub <- readxl::read_excel("D:/bdd/data_pub.xlsx")
 data_comm <- readxl::read_excel("D:/bdd/data_comm.xlsx")
 rtw <- readxl::read_excel("D:/bdd/RWDBDNLD04242023.xlsx")
+data_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
 
 ### Extraction colonnes d'intérêt et suppression des autres données
 df <- data_pub %>%
-  select(publication, Auteurs, Pays_institution, `Nombre de commentaires`, Année, starts_with("Journal"))
+  select(publication, Auteurs, Pays_institution, Nombre.de.commentaires, Année, starts_with("Journal"))
 ### Extraction colonnes d'intérêt et suppression des autres données
 df <- bdd_pub %>%
   select(publication, Auteurs, Pays_institution, `Nombre de commentaires`, Année, starts_with("Journal"))
@@ -69,7 +70,7 @@ givenNames = findGivenNames(df_unnested$Auteur, progress = FALSE, apikey = '****
 names(givenNames) <- c("id", "gender", "given_name", "proba", "country_id")
 #write.xlsx(givenNames, "D:/bdd/gender_proba.xlsx")
 givenNames <- readxl::read_excel("D:/bdd/gender_proba.xlsx")
-
+givenNames <- read_excel("~/Documents/Pubpeer Gender/gender_proba.xlsx")
 # matcher les prénoms
 df_unnested$prenoms <- tolower(df_unnested$prenoms) # mettre en minuscules 
 givenNames <- givenNames %>% # extraire valeurs uniques
