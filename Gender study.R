@@ -103,14 +103,14 @@ df_test <- df_final %>%
 
 
 df_final$g_prob_06 <- df_final$gender 
-df_final$g_prob_06[df_final$proba < 0.6 & df_final$proba > 0.5] <- "unisex" # modifier les probas < 0.6 à Unisexe
+df_final$g_prob_06[df_final$proba < 0.6] <- "unisex" # modifier les probas < 0.6 à Unisexe
 # Remplacer les valeurs NA dans la colonne "gender" selon les conditions données
 df_final$g_prob_06[is.na(df_final$g_prob_06) & nchar(df_final$prenoms) <= 2] <- "initials"
 df_final$g_prob_06[is.na(df_final$g_prob_06) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
 df_final$g_prob_06[is.na(df_final$g_prob_06)] <- "undefined"
 
 df_final$g_prob_07 <- df_final$gender 
-df_final$g_prob_07[df_final$proba < 0.7 & df_final$proba > 0.5] <- "unisex" # modifier les probas < 0.6 à Unisexe
+df_final$g_prob_07[df_final$proba < 0.7] <- "unisex" # modifier les probas < 0.6 à Unisexe
 # Remplacer les valeurs NA dans la colonne "gender" selon les conditions données
 df_final$g_prob_07[is.na(df_final$g_prob_07) & nchar(df_final$prenoms) <= 2] <- "initials"
 df_final$g_prob_07[is.na(df_final$g_prob_07) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
@@ -118,21 +118,21 @@ df_final$g_prob_07[is.na(df_final$g_prob_07)] <- "undefined"
 
 
 df_final$g_prob_08 <- df_final$gender 
-df_final$g_prob_08[df_final$proba < 0.8 & df_final$proba > 0.5] <- "unisex" # modifier les probas < 0.6 à Unisexe
+df_final$g_prob_08[df_final$proba < 0.8] <- "unisex" # modifier les probas < 0.6 à Unisexe
 df_final$g_prob_08[is.na(df_final$g_prob_08) & nchar(df_final$prenoms) <= 2] <- "initials"
 df_final$g_prob_08[is.na(df_final$g_prob_08) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
 df_final$g_prob_08[is.na(df_final$g_prob_08)] <- "undefined"
 
 
 df_final$g_prob_09 <- df_final$gender 
-df_final$g_prob_09[df_final$proba < 0.9 & df_final$proba > 0.5] <- "unisex" # modifier les probas < 0.6 à Unisexe
+df_final$g_prob_09[df_final$proba < 0.9] <- "unisex" # modifier les probas < 0.6 à Unisexe
 df_final$g_prob_09[is.na(df_final$g_prob_09) & nchar(df_final$prenoms) <= 2] <- "initials"
 df_final$g_prob_09[is.na(df_final$g_prob_09) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
 df_final$g_prob_09[is.na(df_final$g_prob_09)] <- "undefined"
 
 
 df_final$g_prob_100 <- df_final$gender 
-df_final$g_prob_100[df_final$proba > 0.5 & df_final$proba < 0.99] <- "unisex" # modifier les probas < 0.6 à Unisexe
+df_final$g_prob_100[df_final$proba >= 0.5 & df_final$proba < 0.99] <- "unisex" # modifier les probas < 0.6 à Unisexe
 df_final$g_prob_100[is.na(df_final$g_prob_100) & nchar(df_final$prenoms) <= 2] <- "initials"
 df_final$g_prob_100[is.na(df_final$g_prob_100) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
 df_final$g_prob_100[is.na(df_final$g_prob_100)] <- "undefined"
@@ -152,13 +152,23 @@ nbaut <- df_final %>%
 df_nb_aut <- merge(df_final, nbaut, by.x = "publication", by.y = "publication", all.x = TRUE) # matcher
 
 
+# # correction suite à la constatation d'une erreur ----
+# tb_finale_gender <- read_excel("~/Documents/Pubpeer Gender/tb_finale_gender.xlsx")
+# # Recherche des lignes où la colonne "proba" est égale à 0.5
+# indices <- complete.cases(tb_finale_gender$proba) & tb_finale_gender$proba == 0.5
+# 
+# # Modification des valeurs des colonnes spécifiées pour les lignes correspondantes
+# tb_finale_gender[indices, c("g_prob_06", "g_prob_07", "g_prob_08", "g_prob_09", "g_prob_100")] <- "unisex"
+# 
+df_nb_aut <- tb_finale_gender 
+
 
 # stats desc proba et genre
-df_final %>% 
+tb_finale_gender %>% 
   tbl_summary(
     include = c("proba", "g_prob_06", "g_prob_07", "g_prob_08", "g_prob_09", "g_prob_100")
-  
-)
+    
+  )
 
 
 ## Analyse des données ----
@@ -196,20 +206,6 @@ df_nb_aut$Gtype <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "M
 
 
 
-write.xlsx(df_nb_aut, "D:/bdd/tb_finale_gender.xlsx")
+write.xlsx(df_nb_aut, "D:/bdd/tb_finale_gender2.xlsx")
 
-df_stats <- df_nb_aut %>%
-  select(publication, Gtype) %>%
-  unique()
-
-# write.xlsx(tb_final, "D:/bdd/tb_finale.xlsx")
-
-
-
-
-tb_ech <- subset(tb_final, tb_final$`Nombre de commentaires`>1)
-
-tb_ech %>% tbl_summary(
-  include = c(`Nombre de commentaires`, female_part)
-)
 

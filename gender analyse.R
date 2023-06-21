@@ -97,7 +97,7 @@ df <- df_gender_filtr %>%
 
 # ajouter un flag pour la rétraction
 df$is_retracted <- ifelse(is.na(df$RetractionDate), 0, 1)
-write.xlsx(df, "/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") # écrit directement sur le cloud
+write.xlsx(df, "/Users/maddi/Documents/Pubpeer Gender/df_gender_retract2.xlsx") # écrit directement sur le cloud
 
 
 

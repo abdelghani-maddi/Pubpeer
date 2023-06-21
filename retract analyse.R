@@ -30,7 +30,7 @@ dbListTables(con)
 
 ### Lecture des données ----
 
-df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
+df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract2.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
 #write.xlsx(df_retract, "/Users/maddi/Documents/Pubpeer Gender/df_retract.xlsx")
 reason_agr <- read_excel("~/Documents/Pubpeer Gender/reasons_retract aggreg.xlsx")
 
