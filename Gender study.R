@@ -187,16 +187,29 @@ df_nb_aut <- df_nb_aut %>%
 
 ##
 df_nb_aut <- df_nb_aut %>%
-  mutate(Gtype2 = case_when(
-    Gtype %in% c("Woman alone", "Man alone", "Collab. men only", "Collab. women only") ~ Gtype,
-    w_corresp == 1 ~ "Collab. men-women . w corr",
-    m_corresp == 1 ~ "Collab. men-women . m corr",
-    TRUE ~ Gtype
-  ))
+  group_by(publication) %>%
+  mutate(w_corresp = ifelse(any(w_corresp == 1), 1, w_corresp),
+         m_corresp = ifelse(any(m_corresp == 1), 1, m_corresp))
+
+
+##
+# Ajouter la variable "Gtype"
+df_nb_aut$Gtype2 <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "Man alone", 
+                          ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut == 1, "Woman alone",
+                                 ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut > 1, "Collab. men only",
+                                        ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut > 1, "Collab. women only",
+                                                ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1 & df_nb_aut$w_corresp==1, "Collab. men-women w lead", 
+                                                             ifelse(df_nb_aut$female_part > 0 & df_nb_aut$female_part < 1 & df_nb_aut$nb_aut > 1 & df_nb_aut$m_corresp==1, "Collab. men-women m lead", 
+                                                                    NA)
+                                                      )
+                                               )
+                                        )
+                                 )
+                          )
 
 
 ## supprimer toutes les lignes pour lesquelles w_corresp et m_corresp = 0 : cela revient à garder uniquement les 
-   ## publications distinctes avec les nom des auteurs correspondants et ne pas garder toute la liste des auteurs
+   ## publications distinctes pour lequelles tous les sexes des premiers auteurs sont identifiés
 df_nb_aut2 <- df_nb_aut %>%
   filter(w_corresp != 0 | m_corresp != 0)
 
