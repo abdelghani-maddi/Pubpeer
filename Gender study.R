@@ -4,6 +4,7 @@ rm(list = ls()) #supprimer tous les objets
 # https://genderize.io/
 # https://journal.r-project.org/archive/2016/RJ-2016-002/index.html 
 # https://kalimu.github.io/#contact
+# devtools::install_github("kalimu/genderizeR")
 
 library(tidyverse)
 library(questionr)
@@ -12,8 +13,7 @@ library(gtsummary)
 library(openxlsx2)
 library(gender)
 library(GenderInfer)
-# devtools::install_github("kalimu/genderizeR")
-library(genderizeR)
+#library(genderizeR)
 library(openxlsx)
 
 
@@ -25,7 +25,7 @@ db <- 'SKEPTISCIENCE'  #provide the name of your db
 host_db <- 'localhost' # server
 db_port <- '5433'  # port DBA
 db_user <- 'postgres' # nom utilisateur  
-db_password <- '********'
+db_password <- 'Maroua1912'
 con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port, user=db_user, password=db_password) 
 # Test connexion
 dbListTables(con) 
@@ -33,14 +33,15 @@ dbListTables(con)
 ### Récupération des données ----
 
 reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires_2')
+
+data_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
 data_comm = dbGetQuery(con,reqsql)
 rtw <- readxl::read_excel("~/Documents/Pubpeer project/Pubpeer explo/Gender/RWDBDNLD04242023.xlsx",sheet = "RWDBDNLD04242023")
 
-### Récupération des données en local
+### Récupération des données en local TT
 data_pub <- readxl::read_excel("D:/bdd/data_pub.xlsx")
 data_comm <- readxl::read_excel("D:/bdd/data_comm.xlsx")
 rtw <- readxl::read_excel("D:/bdd/RWDBDNLD04242023.xlsx")
-data_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
 
 ### Extraction colonnes d'intérêt et suppression des autres données
 df <- data_pub %>%
@@ -68,9 +69,11 @@ df_unnested <- df %>%
 # Usage de genderizeR
 givenNames = findGivenNames(df_unnested$Auteur, progress = FALSE, apikey = '***********************')
 names(givenNames) <- c("id", "gender", "given_name", "proba", "country_id")
-#write.xlsx(givenNames, "D:/bdd/gender_proba.xlsx")
-givenNames <- readxl::read_excel("D:/bdd/gender_proba.xlsx")
+
+write.xlsx(givenNames, "D:/bdd/gender_proba.xlsx")
+givenNames <- read_excel("D:/bdd/gender_proba.xlsx")
 givenNames <- read_excel("~/Documents/Pubpeer Gender/gender_proba.xlsx")
+
 # matcher les prénoms
 df_unnested$prenoms <- tolower(df_unnested$prenoms) # mettre en minuscules 
 givenNames <- givenNames %>% # extraire valeurs uniques
@@ -82,7 +85,8 @@ df_unnested <- df_unnested %>%
   mutate(order_auteur = row_number())
 
 df_final <- merge(df_unnested, givenNames, by.x = "prenoms", by.y = "given_name", all.x = TRUE) # matcher
-# df_final$gender[df_final$proba < 0.6] <- "unisex" # modifier les probas < 0.6 à Unisexe
+
+df_final$gender[df_final$proba < 0.6] <- "unisex" # modifier les probas < 0.6 à Unisexe
 
 # aJOUTER UNE COLONNE POUR INDIQUER SI LES FEMMES SE TROUVENT EN PREMIERE OU DERNIERE POSITION
 df_final <- df_final %>%
@@ -102,46 +106,33 @@ df_test <- df_final %>%
   unique()
 
 
-df_final$g_prob_06 <- df_final$gender 
-df_final$g_prob_06[df_final$proba < 0.6] <- "unisex" # modifier les probas < 0.6 à Unisexe
-# Remplacer les valeurs NA dans la colonne "gender" selon les conditions données
-df_final$g_prob_06[is.na(df_final$g_prob_06) & nchar(df_final$prenoms) <= 2] <- "initials"
-df_final$g_prob_06[is.na(df_final$g_prob_06) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
-df_final$g_prob_06[is.na(df_final$g_prob_06)] <- "undefined"
+# Définir une fonction pour remplacer les valeurs manquantes selon les conditions données
+replace_missing_values <- function(df, column) {
+  df[column][is.na(df[column]) & nchar(df$prenoms) <= 2] <- "initials"
+  df[column][is.na(df[column]) & !(nchar(df$prenoms) <= 2)] <- "undefined"
+  df[column][is.na(df[column])] <- "undefined"
+  return(df)
+}
 
-df_final$g_prob_07 <- df_final$gender 
-df_final$g_prob_07[df_final$proba < 0.7] <- "unisex" # modifier les probas < 0.6 à Unisexe
-# Remplacer les valeurs NA dans la colonne "gender" selon les conditions données
-df_final$g_prob_07[is.na(df_final$g_prob_07) & nchar(df_final$prenoms) <= 2] <- "initials"
-df_final$g_prob_07[is.na(df_final$g_prob_07) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
-df_final$g_prob_07[is.na(df_final$g_prob_07)] <- "undefined"
+# Modifier les colonnes spécifiées en fonction des conditions 
+df_final <- transform(df_final, g_prob_06 = gender, g_prob_07 = gender, g_prob_08 = gender, g_prob_09 = gender, g_prob_100 = gender)
 
+df_final$g_prob_06[df_final$proba < 0.6] <- "unisex"
+df_final <- replace_missing_values(df_final, "g_prob_06")
 
-df_final$g_prob_08 <- df_final$gender 
-df_final$g_prob_08[df_final$proba < 0.8] <- "unisex" # modifier les probas < 0.6 à Unisexe
-df_final$g_prob_08[is.na(df_final$g_prob_08) & nchar(df_final$prenoms) <= 2] <- "initials"
-df_final$g_prob_08[is.na(df_final$g_prob_08) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
-df_final$g_prob_08[is.na(df_final$g_prob_08)] <- "undefined"
+df_final$g_prob_07[df_final$proba < 0.7] <- "unisex"
+df_final <- replace_missing_values(df_final, "g_prob_07")
 
+df_final$g_prob_08[df_final$proba < 0.8] <- "unisex"
+df_final <- replace_missing_values(df_final, "g_prob_08")
 
-df_final$g_prob_09 <- df_final$gender 
-df_final$g_prob_09[df_final$proba < 0.9] <- "unisex" # modifier les probas < 0.6 à Unisexe
-df_final$g_prob_09[is.na(df_final$g_prob_09) & nchar(df_final$prenoms) <= 2] <- "initials"
-df_final$g_prob_09[is.na(df_final$g_prob_09) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
-df_final$g_prob_09[is.na(df_final$g_prob_09)] <- "undefined"
+df_final$g_prob_09[df_final$proba < 0.9] <- "unisex"
+df_final <- replace_missing_values(df_final, "g_prob_09")
 
+df_final$g_prob_100[df_final$proba >= 0.5 & df_final$proba < 0.99] <- "unisex"
+df_final <- replace_missing_values(df_final, "g_prob_100")
 
-df_final$g_prob_100 <- df_final$gender 
-df_final$g_prob_100[df_final$proba >= 0.5 & df_final$proba < 0.99] <- "unisex" # modifier les probas < 0.6 à Unisexe
-df_final$g_prob_100[is.na(df_final$g_prob_100) & nchar(df_final$prenoms) <= 2] <- "initials"
-df_final$g_prob_100[is.na(df_final$g_prob_100) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
-df_final$g_prob_100[is.na(df_final$g_prob_100)] <- "undefined"
-
-
-# Remplacer les valeurs NA dans la colonne "gender" selon les conditions données
-df_final$gender[is.na(df_final$gender) & nchar(df_final$prenoms) <= 2] <- "initials"
-df_final$gender[is.na(df_final$gender) & !(nchar(df_final$prenoms) <= 2)] <- "undefined"
-df_final$gender[is.na(df_final$gender)] <- "undefined"
+df_final <- replace_missing_values(df_final, "gender")
 
 # Compter le nombre d'auteurs par publication
 nbaut <- df_final %>%
@@ -152,19 +143,8 @@ nbaut <- df_final %>%
 df_nb_aut <- merge(df_final, nbaut, by.x = "publication", by.y = "publication", all.x = TRUE) # matcher
 
 
-# # correction suite à la constatation d'une erreur ----
-# tb_finale_gender <- read_excel("~/Documents/Pubpeer Gender/tb_finale_gender.xlsx")
-# # Recherche des lignes où la colonne "proba" est égale à 0.5
-# indices <- complete.cases(tb_finale_gender$proba) & tb_finale_gender$proba == 0.5
-# 
-# # Modification des valeurs des colonnes spécifiées pour les lignes correspondantes
-# tb_finale_gender[indices, c("g_prob_06", "g_prob_07", "g_prob_08", "g_prob_09", "g_prob_100")] <- "unisex"
-# 
-df_nb_aut <- tb_finale_gender 
-
-
 # stats desc proba et genre
-tb_finale_gender %>% 
+df_final %>% 
   tbl_summary(
     include = c("proba", "g_prob_06", "g_prob_07", "g_prob_08", "g_prob_09", "g_prob_100")
     
