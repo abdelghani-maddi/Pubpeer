@@ -25,3 +25,14 @@ df <- tb_finale_gender %>%
   subset(., publication < 340 & proba < 0.7 & g_prob_06 %in% c("male", "female"))
 
 write.xlsx(df, "D:/APC Jaime Texiera/echantillon gender.xlsx")
+
+
+df <- tb_finale_gender %>%
+  select(publication, prenoms, g_prob_06, proba) %>%
+  left_join(., bdd_pub, by = 'publication') %>%
+  select(DOI,publication, prenoms, g_prob_06, proba) %>%
+  subset(., proba == 0.5 & g_prob_06 %in% c("male", "female")) %>%
+  select(publication) %>%
+  unique()
+
+
