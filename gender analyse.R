@@ -35,8 +35,7 @@ df_retract <- read_excel("~/Documents/Pubpeer Gender/RWDBDNLD04242023.xlsx", she
 df_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
 reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires_2')
 df_comm = dbGetQuery(con,reqsql)
-# Transformer le format de la date du commentaire
-df_comm$date_com <- as.Date.character(df_comm$date_com)
+
 # extraire l'année depuis la colonne "date"
 df_comm$annee <- format(df_comm$date_com, "%Y")
 
@@ -45,21 +44,11 @@ aut <- df_gender %>%
   select(publication, nb_aut) %>%
   unique()
 
-aut_dist <- freq(aut)
 
 ### Statistiques descriptives sur l'identification du genre ----
 #`%not_in%` <- purrr::negate(`%in%`)
 
 ## Stats globales sur l'identification du sexe
-df_gender %>% 
-  tbl_summary(
-    include = c(publication, gender),
-    sort = list(everything() ~ "frequency"),
-    statistic = list(
-      all_continuous() ~ c("{N_obs}") 
-    )
-  )
-
 df_gender %>% 
   tbl_summary(
     include = c(publication, g_prob_06),
@@ -97,18 +86,18 @@ df <- df_gender_filtr %>%
 
 # ajouter un flag pour la rétraction
 df$is_retracted <- ifelse(is.na(df$RetractionDate), 0, 1)
-write.xlsx(df, "/Users/maddi/Documents/Pubpeer Gender/df_gender_retract2.xlsx") # écrit directement sur le cloud
 
-
+write.xlsx(df, "/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") # écrit directement sur le cloud
 
 df <- df %>%
-  select(publication, Gtype, is_retracted) %>%
+  select(publication, Gtype2, is_retracted, w_corresp, m_corresp) %>%
+  filter(w_corresp != 0 | m_corresp != 0) %>%
   unique()
 
 
 df %>% 
   tbl_summary(
-    include = c(publication, Gtype, is_retracted),
+    include = c(publication, Gtype2, is_retracted),
     by = is_retracted,
     sort = list(everything() ~ "frequency"),
     statistic = list(
@@ -123,17 +112,16 @@ df %>%
 
 
 
-
 ### Part dans les rétractations / part dans le total (par type de collab) ----
 
 # Calculate the total number of rows in the dataframe
 total <- nrow(df)
 
 # Create a table of counts for each "Gtype" value
-table_all <- table(df$Gtype)
+table_all <- table(df$Gtype2)
 
 # Create a table of counts for each "Gtype" value where "Retracted" is "True"
-table_retracted <- table(df$Gtype[df$is_retracted == 1])
+table_retracted <- table(df$Gtype2[df$is_retracted == 1])
 
 # Calculate the relative proportion of each "Gtype" value in the entire dataframe
 prop_all <- table_all / total
