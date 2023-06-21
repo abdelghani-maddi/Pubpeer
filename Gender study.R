@@ -5,6 +5,7 @@ rm(list = ls()) #supprimer tous les objets
 # https://journal.r-project.org/archive/2016/RJ-2016-002/index.html 
 # https://kalimu.github.io/#contact
 # devtools::install_github("kalimu/genderizeR")
+#library(genderizeR)
 
 library(tidyverse)
 library(questionr)
@@ -13,8 +14,8 @@ library(gtsummary)
 library(openxlsx2)
 library(gender)
 library(GenderInfer)
-#library(genderizeR)
 library(openxlsx)
+library(readxl)
 
 
 # Connexion ----
@@ -49,9 +50,11 @@ df <- data_pub %>%
 ### Extraction colonnes d'intérêt et suppression des autres données
 df <- bdd_pub %>%
   select(publication, Auteurs, Pays_institution, `Nombre de commentaires`, Année, starts_with("Journal"))
-### Supprimer les données
+
+### Supprimer les données inutiles
 rm(data_pub)
 
+## Prédire le genre ----
 # Pivoter les noms des auteurs par autant de lignes que d'auteurs et dupliquer l'identifiant "publication"
 df_unnested <- df %>%
   mutate(prenoms = str_extract_all(Auteurs, "(?<=')[A-Za-z]+")) %>%
@@ -59,23 +62,18 @@ df_unnested <- df %>%
   select(-Auteurs)
 
 # Prédire le genre pour chaque prénom
-# # Exemple de données avec une colonne "prenoms" contenant les prénoms
-# authors <- data.frame( publication = df_unnested$publication,
-#                        prenoms = df_unnested$prenoms)
-# # Prédire le genre avec assign_gender
-# authors <- assign_gender(data_df = authors, first_name_col = "prenoms")
-
-
 # Usage de genderizeR
 givenNames = findGivenNames(df_unnested$Auteur, progress = FALSE, apikey = '***********************')
 names(givenNames) <- c("id", "gender", "given_name", "proba", "country_id")
 
 write.xlsx(givenNames, "D:/bdd/gender_proba.xlsx")
+
 givenNames <- read_excel("D:/bdd/gender_proba.xlsx")
 givenNames <- read_excel("~/Documents/Pubpeer Gender/gender_proba.xlsx")
 
 # matcher les prénoms
 df_unnested$prenoms <- tolower(df_unnested$prenoms) # mettre en minuscules 
+
 givenNames <- givenNames %>% # extraire valeurs uniques
   unique()
 
@@ -86,9 +84,10 @@ df_unnested <- df_unnested %>%
 
 df_final <- merge(df_unnested, givenNames, by.x = "prenoms", by.y = "given_name", all.x = TRUE) # matcher
 
-df_final$gender[df_final$proba < 0.6] <- "unisex" # modifier les probas < 0.6 à Unisexe
 
-# aJOUTER UNE COLONNE POUR INDIQUER SI LES FEMMES SE TROUVENT EN PREMIERE OU DERNIERE POSITION
+## Enrichissement des données avec des variables sur le rôle et le type de collaboration F H ----
+
+# AJOUTER UNE COLONNE POUR INDIQUER SI LES FEMMES SE TROUVENT EN PREMIERE OU DERNIERE POSITION
 df_final <- df_final %>%
   group_by(publication) %>%
   mutate(woman_leader = case_when(
@@ -143,31 +142,20 @@ nbaut <- df_final %>%
 df_nb_aut <- merge(df_final, nbaut, by.x = "publication", by.y = "publication", all.x = TRUE) # matcher
 
 
-# stats desc proba et genre
-df_final %>% 
-  tbl_summary(
-    include = c("proba", "g_prob_06", "g_prob_07", "g_prob_08", "g_prob_09", "g_prob_100")
-    
-  )
-
-
-## Analyse des données ----
+###
 `%not_in%` <- purrr::negate(`%in%`)
 
 # Calcul de la proportion des femmes par publication
 tbfin <- df_nb_aut %>%
-  select(publication, gender, `Nombre de commentaires`, Année, starts_with("Journal")) %>%
+  select(publication, gender, Nombre.de.commentaires, Année, starts_with("Journal")) %>%
   subset(., gender %not_in% c("initials", "unisex", "undefined")) %>%
   group_by(publication) %>%
   summarize(female_part = mean(gender == "female", na.rm = TRUE))
 
-# faire une jointure
+# Faire une jointure
 df_nb_aut <- merge(df_nb_aut, tbfin, by.x = "publication", by.y = "publication", all.x = TRUE) 
 
-
-
-# Etudier l'évolution par type par année, toutes disciplines confondues
-# Ajouter la variable
+# Ajouter la variable "Gtype"
 df_nb_aut$Gtype <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "Man alone", 
                           ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut == 1, "Woman alone",
                                  ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut > 1, "Collab. men only",
@@ -180,12 +168,48 @@ df_nb_aut$Gtype <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "M
                                  )
                             )
                        )
-)
+                  )
 
 
+# Ajouter une autre variable sur le répartition du type de collab. H F. 
+##
+# cela consiste à :
+# dupliquer la colonne Gtype en Gtype2, en modifiant les modalités selon ces conditions : 
+# pour les valeurs de Gtype différentes de : ("Woman alone", "Man alone", "Collab. men only", "Collab. women only"), 
+# si w_corresp=1, Gtype2="Collab. men-women . w corr", si m_corresp=1, Gtype2="Collab. men-women . m corr"
+# Ajouter le flag femme auteur de correspondance (proxy : 1er auteur)
+df_nb_aut <- df_nb_aut %>%
+  mutate(w_corresp = ifelse(order_auteur == 1 & g_prob_06 == "female", 1, 0))
+
+# Ajouter le flag homme auteur de correspondance (proxy : 1er auteur)
+df_nb_aut <- df_nb_aut %>%
+  mutate(m_corresp = ifelse(order_auteur == 1 & g_prob_06 == "male", 1, 0))
+
+##
+df_nb_aut <- df_nb_aut %>%
+  mutate(Gtype2 = case_when(
+    Gtype %in% c("Woman alone", "Man alone", "Collab. men only", "Collab. women only") ~ Gtype,
+    w_corresp == 1 ~ "Collab. men-women . w corr",
+    m_corresp == 1 ~ "Collab. men-women . m corr",
+    TRUE ~ Gtype
+  ))
 
 
+## supprimer toutes les lignes pour lesquelles w_corresp et m_corresp = 0 : cela revient à garder uniquement les 
+   ## publications distinctes avec les nom des auteurs correspondants et ne pas garder toute la liste des auteurs
+df_nb_aut2 <- df_nb_aut %>%
+  filter(w_corresp != 0 | m_corresp != 0)
 
-write.xlsx(df_nb_aut, "D:/bdd/tb_finale_gender2.xlsx")
+write.xlsx(df_nb_aut, "D:/bdd/tb_finale_gender.xlsx")
+write.xlsx(df_nb_aut, "~/Documents/Pubpeer Gender/tb_finale_gender.xlsx")
 
+write.xlsx(df_nb_aut2, "D:/bdd/tb_finale_gender_first_aut_only.xlsx")
+write.xlsx(df_nb_aut, "~/Documents/Pubpeer Gender/tb_finale_gender_first_aut_only.xlsx")
+
+# Stats desc proba et genre ----
+df_final %>% 
+  tbl_summary(
+    include = c("proba", "g_prob_06", "g_prob_07", "g_prob_08", "g_prob_09", "g_prob_100")
+    
+  )
 
