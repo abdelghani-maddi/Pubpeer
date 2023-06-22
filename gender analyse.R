@@ -94,7 +94,7 @@ df <- df %>%
   filter(w_corresp != 0 | m_corresp != 0) %>%
   unique()
 
-
+# Distribution of publications according to the type of men-women collaboration in the overall Pubpeer dataset and within the retracted publications
 df %>% 
   tbl_summary(
     include = c(publication, Gtype2, is_retracted),
@@ -109,7 +109,6 @@ df %>%
   modify_spanning_header(c("stat_1", "stat_2") ~ "**Is retracted**") %>%
   add_p() %>%
   separate_p_footnotes()
-
 
 
 ### Part dans les rétractations / part dans le total (par type de collab) ----
@@ -136,7 +135,7 @@ relative_prop <- as.data.frame(prop_retracted / prop_all)
 relative_prop
 
 
-## représentation graphique
+## Représentation graphique
 ggplot(relative_prop, aes(x = reorder(Var1, Freq), y = Freq)) + 
   geom_bar(stat = "identity") +
   geom_col(fill = "#2C81C9") +
