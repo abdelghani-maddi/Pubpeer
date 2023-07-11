@@ -213,6 +213,19 @@ df_nb_aut$Gtype2 <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "
 df_nb_aut2 <- df_nb_aut %>%
   filter(w_corresp != 0 | m_corresp != 0)
 
+
+#  data 
+data_dom <- "SELECT * FROM public.data_frac_disc"
+data_dom <- dbGetQuery(con,data_dom)
+names(data_dom) = c("publication", "disc", "frac_disc")
+
+# ajout des disciplines
+df_nb_aut <- df_nb_aut %>%
+  left_join(., data_dom, by = "publication")
+
+# df_nb_aut <- df_gender %>%
+#   left_join(., data_dom, by = "publication")
+
 write.xlsx(df_nb_aut, "D:/bdd/tb_finale_gender.xlsx")
 write.xlsx(df_nb_aut, "~/Documents/Pubpeer Gender/tb_finale_gender.xlsx")
 
@@ -225,4 +238,6 @@ df_final %>%
     include = c("proba", "g_prob_06", "g_prob_07", "g_prob_08", "g_prob_09", "g_prob_100")
     
   )
+
+
 

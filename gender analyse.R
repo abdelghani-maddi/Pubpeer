@@ -151,3 +151,4 @@ ggplot(relative_prop, aes(x = reorder(Var1, Freq), y = Freq)) +
 df_retract <- read_excel("~/Documents/Pubpeer Gender/RWDBDNLD04242023.xlsx", sheet = "RWDBDNLD04242023") ### bdd retractations (version avril 2023)
 
 
+

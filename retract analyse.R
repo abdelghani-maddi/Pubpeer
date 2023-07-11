@@ -29,36 +29,14 @@ con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port,
 dbListTables(con)
 
 ### Lecture des données ----
+df_gender <- read_excel("~/Documents/Pubpeer Gender/tb_finale_gender.xlsx") ## bdd sur le genre
 
-df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract2.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
+df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
 #write.xlsx(df_retract, "/Users/maddi/Documents/Pubpeer Gender/df_retract.xlsx")
 reason_agr <- read_excel("~/Documents/Pubpeer Gender/reasons_retract aggreg.xlsx")
 
-# dupliquer la colonne Gtype en Gtype2, en modifiant les modalités selon ces conditions : 
-# pour les valeurs de Gtype différentes de : ("Woman alone", "Man alone", "Collab. men only", "Collab. women only"), 
-# si w_corresp=1, Gtype2="Collab. men-women . w corr", si m_corresp=1, Gtype2="Collab. men-women . m corr"
-# Ajouter le flag femme auteur de correspondance (proxy : 1er auteur)
-df_retract <- df_retract %>%
-  mutate(w_corresp = ifelse(order_auteur == 1 & g_prob_06 == "female", 1, 0))
+bdd_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
 
-# Ajouter le flag homme auteur de correspondance (proxy : 1er auteur)
-df_retract <- df_retract %>%
-  mutate(m_corresp = ifelse(order_auteur == 1 & g_prob_06 == "male", 1, 0))
-
-
-##
-df_retract <- df_retract %>%
-  mutate(Gtype2 = case_when(
-    Gtype %in% c("Woman alone", "Man alone", "Collab. men only", "Collab. women only") ~ Gtype,
-    w_corresp == 1 ~ "Collab. men-women . w corr",
-    m_corresp == 1 ~ "Collab. men-women . m corr",
-    TRUE ~ Gtype
-  ))
-
-
-## supprimer toutes les lignes pour lesquelles w_corresp et m_corresp = 0 
-df_retract <- df_retract %>%
-  filter(w_corresp != 0 | m_corresp != 0)
 
 ## décortiquer les raisons
 # éclater les raisons
@@ -69,7 +47,10 @@ df_retract_reason <- df_retract %>%
 
 
 # calcul de la fréquence
-freq_reasons <- freq(df_retract$Reason) %>%
+freq_reasons <- df_retract_reason %>%
+  select(publication, Reason) %>%
+  unique() 
+freq_reasons <- freq(freq_reasons$Reason) %>%
   data_frame(rownames(.), .)
 names(freq_reasons) = c("Reason","nb", "%", "val%")
 
@@ -79,12 +60,12 @@ names(freq_reasons) = c("Reason","nb", "%", "val%")
 reason_agr <- read_excel("~/Documents/Pubpeer Gender/reasons_retract aggreg.xlsx")
 
 # Matcher les raisons avec la bdd sur le gender
-
-df_retract <- df_retract %>%
+df_retract_reason <- df_retract_reason %>%
   select(publication, Gtype2, ID_retractionwatch, Reason) %>%
   unique()
+
 # Merger les deux pour avoir les raisons aggrégées
-df_retract_agr <- merge(df_retract, reason_agr, by = "Reason")
+df_retract_agr <- merge(df_retract_reason, reason_agr, by = "Reason")
 
 
 # coocuurences des raisons (pour aider à l'interprétation)
@@ -124,38 +105,15 @@ reason_agreg <- df_retract_agr %>%
   select(reason_aggreg, Gtype2) %>%
   table() %>%
   data.frame()
-write.xlsx(reason_agreg, "~/Documents/Pubpeer Gender/reasons_retract_stats2.xlsx")
 
+write.xlsx(reason_agreg, "~/Documents/Pubpeer Gender/reasons_retract_stats.xlsx")
 
-
-
-#### faire la même analyse, mais avec la variable femme auteur de correspondance au lieu de 1er dernier auteur ----
-
-# Matcher les raisons avec la bdd sur le gender
-
-df_retract <- df_retract %>%
-  select(publication, Gtype2, ID_retractionwatch, Reason) %>%
-  unique()
-# Merger les deux pour avoir les raisons aggrégées
-df_retract_agr <- merge(df_retract, reason_agr, by = "Reason")
-
-# fair les calculs
-
-df_retract_agr %>%
-  tbl_summary(
-    include = c(reason_aggreg, Gtype2),
-    by = Gtype2,
-    sort = list(everything() ~ "frequency"),
-    statistic = list(
-      all_continuous() ~ c("{N_obs}") 
-    )
-  ) %>%
-  add_overall(last = TRUE) #, col_label = "**Ensemble** (effectif total: {N})")
 
 
 ######
 df <- df_retract %>%
   select(publication, Gtype2, is_retracted) %>%
+  filter(!is.na(Gtype2)) %>%
   unique()
 
 
@@ -173,8 +131,6 @@ df %>%
   modify_spanning_header(c("stat_1", "stat_2") ~ "**Is retracted**") %>%
   add_p() %>%
   separate_p_footnotes()
-
-
 
 
 ### Part dans les rétractations / part dans le total (par type de collab) ----
@@ -199,6 +155,7 @@ relative_prop <- as.data.frame(prop_retracted / prop_all)
 
 # Print the resulting table of relative proportions
 relative_prop
+
 write.xlsx(relative_prop, "~/Documents/Pubpeer Gender/relative_prop.xlsx")
 
 
@@ -215,28 +172,6 @@ ggplot(relative_prop, aes(x = reorder(Var1, Freq), y = Freq)) +
 
 #### Regression logistique ----
 df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
-
-
-# Ajouter le flag femme auteur de correspondance (proxy : 1er auteur)
-df_retract <- df_retract %>%
-  mutate(w_corresp = ifelse(order_auteur == 1 & g_prob_06 == "female", 1, 0))
-
-# Ajouter le flag homme auteur de correspondance (proxy : 1er auteur)
-df_retract <- df_retract %>%
-  mutate(m_corresp = ifelse(order_auteur == 1 & g_prob_06 == "male", 1, 0))
-
-##
-df_retract <- df_retract %>%
-  mutate(Gtype2 = case_when(
-    Gtype %in% c("Woman alone", "Man alone", "Collab. men only", "Collab. women only") ~ Gtype,
-    w_corresp == 1 ~ "Collab. men-women . w corr",
-    m_corresp == 1 ~ "Collab. men-women . m corr",
-    TRUE ~ Gtype
-  ))
-
-## supprimer toutes les lignes pour lesquelles w_corresp et m_corresp = 0 
-df_retract <- df_retract %>%
-  filter(w_corresp != 0 | m_corresp != 0)
 
 # bdd_regression
 bdd_reg1 <- df_retract %>%
@@ -283,7 +218,7 @@ bdd_regr <- pivot_wider(bdd_reg, names_from = Gtype2, values_from = Gtype2, valu
 row_data_dis = data.frame(bdd_pub$publication,((bdd_pub$Journal_Domaines_WOS)))
 names(row_data_dis) = c("publication","discipline")
 
-clean_data =  data.frame(row_data_dis$publication, gsub("  ", " ",(str_replace_all((str_split(row_data_dis$JDW, '",' , simplify = TRUE)), "[[:punct:]]", ""))))
+clean_data =  data.frame(row_data_dis$publication, gsub("  ", " ",(str_replace_all((str_split(row_data_dis$discipline, '",' , simplify = TRUE)), "[[:punct:]]", ""))))
 names(clean_data) = c("publication","discipline")
 
 data_JD <- subset(clean_data, discipline != "")
@@ -292,7 +227,7 @@ data_JD <- subset(clean_data, discipline != "")
 ## ajout des disciplines
 bdd_regr <- bdd_regr %>%
   left_join(., data_JD, by = "publication") %>%
-  subset(., !is.na(discipline))
+  subset(., !is.na(.$discipline))
 
 
 ## Recoding bdd_regr$discipline
@@ -313,9 +248,8 @@ bdd_regr <- pivot_wider(bdd_regr, names_from = discipline, values_from = discipl
 
 
 
-
 # Ajuster un modèle de régression logistique
-modele_logit1 <- glm(is_retracted ~ `Collab. men-women . m corr` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women . w corr` ,
+modele_logit1 <- glm(is_retracted ~ `Collab. men-women m lead` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women w lead` ,
                      data = bdd_regr, 
                      family = binomial)
 summary(modele_logit1)
@@ -332,7 +266,7 @@ write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit1.xlsx")
 
 
 ## variables de controle
-modele_logit2 <- glm(is_retracted ~ `Collab. men-women . m corr` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women . w corr` +
+modele_logit2 <- glm(is_retracted ~ `Collab. men-women m lead` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women w lead` +
                        log(nb_aut) 
                      , 
                      data = bdd_regr, 
@@ -350,7 +284,7 @@ write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit2.xlsx")
 
 
 ## variables de controle
-modele_logit2b<- glm(is_retracted ~ `Collab. men-women . m corr` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women . w corr` +
+modele_logit2b<- glm(is_retracted ~ `Collab. men-women m lead` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women w lead` +
                        log(nb_aut) +
                        is_oa 
                      , 
@@ -369,7 +303,7 @@ write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit2b.xlsx")
 
 
 ## variables de controle : discipline
-modele_logit3 <- glm(is_retracted ~ `Collab. men-women . m corr` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women . w corr` +
+modele_logit3 <- glm(is_retracted ~ `Collab. men-women m lead` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women w lead` +
                        log(nb_aut) +
                        is_oa +
                        bdd_regr$`Social Sciences` +

@@ -18,21 +18,21 @@ library(openxlsx)
 
 # data
 
-df <- tb_finale_gender %>%
-  select(publication, prenoms, g_prob_06, proba) %>%
-  left_join(., bdd_pub, by = 'publication') %>%
-  select(DOI,publication, prenoms, g_prob_06, proba) %>%
-  subset(., publication < 340 & proba < 0.7 & g_prob_06 %in% c("male", "female"))
 
-write.xlsx(df, "D:/APC Jaime Texiera/echantillon gender.xlsx")
+tb_finale_gender <- read_excel("~/Documents/Pubpeer Gender/tb_finale_gender.xlsx") ## bdd sur le genre
+bdd_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
 
 
 df <- tb_finale_gender %>%
   select(publication, prenoms, g_prob_06, proba) %>%
   left_join(., bdd_pub, by = 'publication') %>%
   select(DOI,publication, prenoms, g_prob_06, proba) %>%
-  subset(., proba == 0.5 & g_prob_06 %in% c("male", "female")) %>%
-  select(publication) %>%
-  unique()
+  subset(., g_prob_06 %in% c("male", "female") & DOI != "None") %>%
+  sample_n(100)
+
+write.xlsx(df, "~/Documents/Pubpeer Gender/echantillon gender.xlsx")
+
+
+
 
 
