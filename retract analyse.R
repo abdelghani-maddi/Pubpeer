@@ -426,12 +426,13 @@ df_gender %>%
 
 df_reasons <- df_retract_reason %>%
   select(publication, Reason, Gtype2) %>%
+  subset(., !is.na(Gtype2)) %>%
   group_by(publication) %>%
   mutate(frac_reason = 1/n())
 
 # sum en fonction de raison et gtype2
 df_sum_reason <- df_reasons %>%
   group_by(Reason, Gtype2) %>%
-  summarise(sum_frac_reason = sum(frac_reason))
+  summarise(sum_frac_reason = sum(frac_reason), sum_reason = n_distinct(publication))
 
-write.xlsx(df_sum_reason, "~/Documents/Pubpeer Gender/frac_raisons.xlsx")
+write.xlsx(df_sum_reason, "~/Documents/Pubpeer Gender/frac_raisons2.xlsx")

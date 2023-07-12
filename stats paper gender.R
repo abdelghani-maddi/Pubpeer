@@ -49,27 +49,32 @@ df_gender %>%
 
 
 ### Stats par genre et discipline
-df <- df_retract %>%
-  select(publication, g_prob_06, frac_disc, disc) %>%
+df <- df_gender %>%
+  select(publication, g_prob_06, frac_disc, disc, female_part) %>%
   subset(., !is.na(.$disc) & g_prob_06 %in% c('female','male')) 
 
-df <- df_gender %>%
-  select(publication, order_auteur, g_prob_06) %>%
+df <- df_retract %>%
+  select(publication, order_auteur, g_prob_06, disc)  %>%
+  subset(., g_prob_06 %in% c('female','male')) %>%
   unique()
 
 
-tbl_summary(df_gender,
-            include = c("publication","g_prob_06")
+tbl_summary(df,
+            include = c("g_prob_06")
             )  
 
 
-df <- df_retract %>%
-  select(publication, g_prob_06) %>%
-  subset(., g_prob_06 %in% c('female','male')) 
+df %>% 
+  tbl_summary(
+    include = c(g_prob_06, disc),
+    by = disc,
+    sort = list(everything() ~ "frequency")
+) %>%
+  
+  add_overall(last = TRUE, col_label = "**Overall** (# {N})")  
 
-tbl_summary(df,
-            include = c("publication","g_prob_06"),
-)  
+
+n_distinct(df$publication)
 
 
 df_counts <- df %>%
@@ -79,10 +84,57 @@ df_counts <- df %>%
             nombre_lignes = n())
 
 
-df_counts <- part_f_disc %>%
-  group_by(disc) %>%
-  summarise(moyenne = mean(female_part, na.rm = TRUE),
-            nombre_lignes = n())
+
+# Distribution of publications according to the type of men-women collaboration in the overall Pubpeer dataset and within the retracted publications
+df <- df_retract %>% 
+  subset(., !is.na(Gtype2)) %>% # & !is.na(disc)) %>%
+  select(publication, Gtype2, is_retracted) %>%
+  unique() %>%
+  tbl_summary(
+    include = c(Gtype2, is_retracted),
+    by = is_retracted,
+    sort = list(everything() ~ "frequency"),
+    statistic = list(
+      all_continuous() ~ c("{N_obs}") 
+    )
+  ) %>%
+  add_overall()  %>%
+  # adding spanning header
+  modify_spanning_header(c("stat_1", "stat_2") ~ "**Is retracted**") %>%
+  add_p() %>%
+  separate_p_footnotes()
+
+### Part dans les rétractations / part dans le total (par type de collab) ----
+
+# Calculate the total number of rows in the dataframe
+total <- nrow(df)
+
+# Create a table of counts for each "Gtype" value
+table_all <- table(df$Gtype2)
+
+# Create a table of counts for each "Gtype" value where "Retracted" is "True"
+table_retracted <- table(df$Gtype2[df$is_retracted == 1])
+
+# Calculate the relative proportion of each "Gtype" value in the entire dataframe
+prop_all <- table_all / total
+
+# Calculate the relative proportion of each "Gtype" value for "Retracted" = TRUE
+prop_retracted <- table_retracted / sum(df$is_retracted == 1)
+
+# Divide the relative proportions for "Retracted" = TRUE by those in the entire dataframe
+relative_prop <- as.data.frame(prop_retracted / prop_all)
+
+# Print the resulting table of relative proportions
+t <- as.data.frame(relative_prop)
 
 
-
+## Représentation graphique
+ggplot(relative_prop, aes(x = reorder(Var1, Freq), y = Freq)) + 
+  geom_bar(stat = "identity") +
+  geom_col(fill = "#2C81C9") +
+  labs(
+    x = "Men-women collaboration type",
+    y = "% in retracted / % in overall"
+  ) +
+  coord_flip() +
+  theme_light()
