@@ -393,13 +393,13 @@ modele_logit4 <- glm(is_retracted ~ `Collab. men-women m lead` + `Man alone` + `
                        log(nb_aut) +
                        is_oa +
                        #sum_nb_com_before_retract +
-                       sum_nb_comm +
+                       log(sum_nb_comm) +
                        `Social Sciences` +
                        `Physical Sciences` +
                        Technology +
                        `Arts Humanities`
                        , 
-                     data = bdd_regr_filtered, 
+                     data = bdd_regr, 
                      family = binomial)
 summary(modele_logit4)
 
