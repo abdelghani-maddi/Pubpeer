@@ -38,6 +38,7 @@ reason_agr <- read_excel("~/Documents/Pubpeer Gender/reasons_retract aggreg.xlsx
 bdd_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
 
 
+
 ## décortiquer les raisons
 # éclater les raisons
 df_retract_reason <- df_retract %>%
@@ -175,7 +176,9 @@ df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retrac
 
 # bdd_regression
 bdd_reg1 <- df_retract %>%
-  select(publication, nb_aut, Gtype2, is_retracted)
+  select(publication, nb_aut, Gtype2, is_retracted, disc) %>%
+  subset(., !(is.na(.$disc)) & !(is.na(.$Gtype2))) %>%
+  unique()
 
 
 # Extraire l'information sur l'OA
@@ -210,41 +213,90 @@ bdd_regr <- pivot_wider(bdd_reg, names_from = Gtype2, values_from = Gtype2, valu
                         values_fill = list(Gtype2 = 0))
 
 
-## récupérer les disciplines
-# reqsql= paste('select distinct publication, discipline from commentaires_par_discipline')
-# data_disc = dbGetQuery(con,reqsql)
-
-
-row_data_dis = data.frame(bdd_pub$publication,((bdd_pub$Journal_Domaines_WOS)))
-names(row_data_dis) = c("publication","discipline")
-
-clean_data =  data.frame(row_data_dis$publication, gsub("  ", " ",(str_replace_all((str_split(row_data_dis$discipline, '",' , simplify = TRUE)), "[[:punct:]]", ""))))
-names(clean_data) = c("publication","discipline")
-
-data_JD <- subset(clean_data, discipline != "")
-
-
-## ajout des disciplines
-bdd_regr <- bdd_regr %>%
-  left_join(., data_JD, by = "publication") %>%
-  subset(., !is.na(.$discipline))
-
-
-## Recoding bdd_regr$discipline
-bdd_regr$discipline <- bdd_regr$discipline %>%
-  fct_recode(
-    "Arts Humanities" = " Arts Humanities",
-    "Life Sciences Biomedicine" = " Life Sciences Biomedicine",
-    "Multidisciplinary" = " Multidisciplinary",
-    "Physical Sciences" = " Physical Sciences",
-    "Social Sciences" = " Social Sciences",
-    "Technology" = " Technology"
-  )
-
-
 # Pivoter la discipline pour n'analyse
-bdd_regr <- pivot_wider(bdd_regr, names_from = discipline, values_from = discipline, values_fn = list(discipline = function(x) 1), 
-                        values_fill = list(discipline = 0))
+bdd_regr <- pivot_wider(bdd_regr, names_from = disc, values_from = disc, values_fn = list(disc = function(x) 1), 
+                        values_fill = list(disc = 0))
+
+
+
+
+
+
+#################################################
+## Travail sur les commentaires pour être intégré comme variable explicative ----
+
+# date de rétractation
+rtw <- read_excel("~/Documents/Pubpeer Gender/RWDBDNLD04242023.xlsx", sheet = "RWDBDNLD04242023") ### bdd retractations (version avril 2023)
+pub_ret <- rtw %>%
+  select(`Record ID`, OriginalPaperDOI, RetractionDate, OriginalPaperDate, Reason, Continent)
+names(pub_ret) = c("ID_retractionwatch", "DOI","RetractionDate","OriginalPaperDate","Reason", "Continent")
+# data pub
+pub <- bdd_pub %>%
+  select(publication, DOI)
+
+# Supprimer les caractères spéciaux et les espaces des colonnes "DOI" des dataframes pub et pub_ret
+pub$DOI_clean <- gsub("[^[:alnum:]]", "", pub$DOI)
+pub_ret$DOI_clean <- gsub("[^[:alnum:]]", "", pub_ret$DOI)
+
+# Faire le match en fonction de la colonne "DOI_clean"
+retraction_data <- merge(pub, pub_ret, by = "DOI_clean")
+
+# Supprimer la colonne "DOI_clean" du dataframe fusionné
+retraction_data$DOI_clean <- NULL
+
+
+reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as comm from data_commentaires_2')
+# reqsql= paste('select * from data_commentaires_2')
+data_comm = dbGetQuery(con,reqsql)
+# Transformer le format de la date du commentaire
+data_comm$date_com <- as.Date.character(data_comm$date_com)
+# extraire l'année depuis la colonne "date"
+data_comm$annee <- format(data_comm$date_com, "%Y")
+
+# Compter le nombre de "inner_id" par "publication" et par "date_com"
+count_data <- aggregate(inner_id ~ publication + date_com, data_comm, length)
+
+# Renommer la colonne "inner_id" en "count"
+names(count_data)[names(count_data) == "inner_id"] <- "nb_comm"
+
+
+# Joindre les dataframes count_data et retraction_data par la colonne "publication"
+merged_data <- left_join(count_data, retraction_data, by = "publication")
+
+merged_data$nb_com_before_retract <- with(merged_data, ifelse(date_com < RetractionDate, nb_comm, 0))
+merged_data$nb_com_after_retract <- with(merged_data, ifelse(date_com >= RetractionDate, nb_comm, 0))
+
+
+# Remplacer les NA de la colonne "nb_com_before_retract" par les valeurs correspondantes de la colonne "nb_comm"
+# et remplacer les NA de la colonne "nb_com_after_retract" par 0
+merged_data$nb_com_before_retract <- ifelse(is.na(merged_data$nb_com_before_retract),
+                                            merged_data$nb_comm,
+                                            merged_data$nb_com_before_retract)
+
+merged_data$nb_com_after_retract <- ifelse(is.na(merged_data$nb_com_after_retract), 0, merged_data$nb_com_after_retract)
+
+
+# Utilisation de la fonction group_by() et summarize() pour faire la somme par groupe
+retraction_data <- merged_data %>%
+  group_by(publication) %>%
+  summarize(sum_nb_com_before_retract = sum(nb_com_before_retract, na.rm = TRUE),
+            sum_nb_com_after_retract = sum(nb_com_after_retract, na.rm = TRUE),
+            sum_nb_comm = sum(nb_comm, na.rm = TRUE))
+
+
+write.xlsx(retraction_data, "~/Documents/Pubpeer Gender/retraction_data.xlsx")
+######################################################
+## Rajouter le nombre de commentaires avant la rétractation en variable explicative
+
+retraction_data <- read_excel("~/Documents/Pubpeer Gender/retraction_data.xlsx") # voir au-dessus pour la procédure
+#retract_data <- retraction_data[,c(1,3,11,12)]
+
+
+bdd_regr <- left_join(bdd_regr, retraction_data, by = "publication")
+
+# Remplacer les valeurs NA par 0 dans les colonnes spécifiées
+cols_to_replace <- c("nb_com_before_retract", "nb_com_after_retract", "nb_comm")
+bdd_regr[cols_to_replace][is.na(bdd_regr[cols_to_replace])] <- 0
 
 
 
@@ -306,10 +358,10 @@ write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit2b.xlsx")
 modele_logit3 <- glm(is_retracted ~ `Collab. men-women m lead` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women w lead` +
                        log(nb_aut) +
                        is_oa +
-                       bdd_regr$`Social Sciences` +
-                       bdd_regr$`Physical Sciences` +
-                       bdd_regr$Technology +
-                       bdd_regr$`Arts Humanities`, 
+                       `Social Sciences` +
+                       `Physical Sciences` +
+                       Technology +
+                       `Arts Humanities`, 
                      data = bdd_regr, 
                      family = binomial)
 summary(modele_logit3)
@@ -327,6 +379,48 @@ results <- broom::tidy(modele_logit3)
 write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit3b.xlsx")
 
 ## 
+
+## variables de controle : nombre de commentaires avant retractation
+# Calculer les valeurs seuils pour les 5% des valeurs extrêmes de la variable "nb_comm"
+lower_threshold <- quantile(bdd_regr$sum_nb_comm, 0.05)
+upper_threshold <- quantile(bdd_regr$sum_nb_comm, 0.95)
+
+# Appliquer le filtre pour supprimer les valeurs extrêmes
+bdd_regr_filtered <- bdd_regr[bdd_regr$sum_nb_comm >= lower_threshold & bdd_regr$sum_nb_comm <= upper_threshold, ]
+
+
+modele_logit4 <- glm(is_retracted ~ `Collab. men-women m lead` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women w lead` +
+                       log(nb_aut) +
+                       is_oa +
+                       #sum_nb_com_before_retract +
+                       sum_nb_comm +
+                       `Social Sciences` +
+                       `Physical Sciences` +
+                       Technology +
+                       `Arts Humanities`
+                       , 
+                     data = bdd_regr_filtered, 
+                     family = binomial)
+summary(modele_logit4)
+
+# Calculer le coefficient de détermination R^2
+R2 <- 1 - (modele_logit4$deviance / modele_logit3$null.deviance)
+cat("R^2 : ", R2, "\n")
+
+# Afficher l'AIC et le BIC du modèle
+AIC(modele_logit4)
+BIC(modele_logit4)
+
+
+results <- broom::tidy(modele_logit4)
+write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit4.xlsx")
+
+## 
+
+
+
+
+
 ## Cutting bdd_regr$nb_aut into bdd_regr$nb_aut_rec
 bdd_regr$nb_aut_rec <- cut(bdd_regr$nb_aut,
   include.lowest = TRUE,
@@ -372,47 +466,6 @@ mcor <- cor(bdd_regr[, c("Collab. men-women . m corr" , "Man alone" , "Collab. m
 corrplot::corrplot(mcor, type="upper", order="hclust", tl.col="black", tl.srt=45)
 
 
-
-
-
-
-## variables de controle : discipline
-bdd_regr_lim <- bdd_regr %>%
-  subset(., nb_aut <100)
-
-modele_logit3 <- glm(is_retracted ~ `Collab. men-women . m corr` + `Man alone` + `Collab. men only` + `Woman alone` + `Collab. men-women . w corr` +
-                       log(nb_aut) +
-                       is_oa +
-                       `Social Sciences` +
-                       `Physical Sciences` +
-                       Technology +
-                       `Arts Humanities`, 
-                     data = bdd_regr_lim, 
-                     family = binomial)
-summary(modele_logit3)
-
-# Calculer le coefficient de détermination R^2
-R2 <- 1 - (modele_logit3$deviance / modele_logit3$null.deviance)
-cat("R^2 : ", R2, "\n")
-
-##
-# Calculer les statistiques descriptives pour nb_aut selon is_retracted
-stats_descriptives <- aggregate(nb_aut ~ is_retracted, data = bdd_regr, FUN = function(x) c(min = min(x), max = max(x), moyenne = mean(x), mediane = median(x), ecart_type = sd(x)))
-
-# Afficher les statistiques descriptives
-print(stats_descriptives)
-
-
-
-###
-# stats desc proba et genre
-df_gender %>% 
-  tbl_summary(
-    include = c("proba", "g_prob_06", "g_prob_07", "g_prob_08", "g_prob_09", "g_prob_100")
-    
-  )
-
-
 #### Faire du compte fractionnaire pour les raisons ----
 
 
@@ -436,3 +489,55 @@ df_sum_reason <- df_reasons %>%
   summarise(sum_frac_reason = sum(frac_reason), sum_reason = n_distinct(publication))
 
 write.xlsx(df_sum_reason, "~/Documents/Pubpeer Gender/frac_raisons2.xlsx")
+
+
+
+raisons_ratio <- read_excel("~/Documents/Pubpeer Gender/raisons_ratio.xlsx")
+row.names(raisons_ratio) <- raisons_ratio$`Reasons (Retraction Watch)`
+
+df <- raisons_ratio %>%
+  subset(., select = -`Reasons (Retraction Watch)`, drop = FALSE)
+row.names(df) <- raisons_ratio$`Reasons (Retraction Watch)`
+
+
+install.packages("pheatmap")        
+library("pheatmap")
+
+
+pheatmap(df)                      
+pheatmap(df, kmeans_k = 4)
+pheatmap(df, cutree_rows = 4, cutree_cols = 3)
+
+
+
+# Transformer les valeurs dans le dataframe selon les conditions spécifiées
+df_transformed <- df %>%
+  mutate_all(function(x) {
+    case_when(
+      x <= 0.3 ~ 0.3,
+      x > 0.3 & x <= 0.5 ~ 0.5,
+      x > 0.5 & x <= 0.7 ~ 0.7,
+      x > 0.7 & x <= 0.9 ~ 0.9,
+      x > 0.9 & x <= 1.1 ~ 1.1,
+      x > 1.1 & x <= 1.3 ~ 1.3,
+      x > 1.3 & x <= 1.5 ~ 1.5,
+      x > 1.5 & x <= 1.7 ~ 1.7,
+      x > 1.7 & x <= 1.9 ~ 1.9,
+      x > 1.9 & x <= 2.1 ~ 2.1,
+      x > 2.1 & x <= 2.3 ~ 2.3,
+      x > 2.3 & x <= 2.5 ~ 2.5,
+      x > 2.5 & x <= 2.7 ~ 2.7,
+      x > 2.7 & x <= 2.9 ~ 2.9,
+      x > 2.9 ~ 2.9,
+      TRUE ~ x  # Pour conserver les autres valeurs telles quelles
+    )
+  })
+
+row.names(df_transformed) <- raisons_ratio$`Reasons (Retraction Watch)`
+
+
+pheatmap(df_transformed)                      
+pheatmap(df_transformed, kmeans_k = 4)
+pheatmap(df_transformed, cutree_rows = 4)
+pheatmap(df_transformed, cutree_rows = 5, cutree_cols = 4)
+
