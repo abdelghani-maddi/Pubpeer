@@ -294,10 +294,6 @@ retraction_data <- read_excel("~/Documents/Pubpeer Gender/retraction_data.xlsx")
 
 bdd_regr <- left_join(bdd_regr, retraction_data, by = "publication")
 
-# Remplacer les valeurs NA par 0 dans les colonnes spécifiées
-cols_to_replace <- c("nb_com_before_retract", "nb_com_after_retract", "nb_comm")
-bdd_regr[cols_to_replace][is.na(bdd_regr[cols_to_replace])] <- 0
-
 
 
 # Ajuster un modèle de régression logistique
@@ -315,6 +311,8 @@ BIC(modele_logit1)
 
 results <- broom::tidy(modele_logit1)
 write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit1.xlsx")
+write.xlsx(results, "D:/Pubpeer Gender/modele_logit1.xlsx")
+
 
 
 ## variables de controle
@@ -333,6 +331,7 @@ BIC(modele_logit2)
 
 results <- broom::tidy(modele_logit2)
 write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit2.xlsx")
+write.xlsx(results, "D:/Pubpeer Gender/modele_logit2.xlsx")
 
 
 ## variables de controle
@@ -352,6 +351,7 @@ BIC(modele_logit2b)
 
 results <- broom::tidy(modele_logit2b)
 write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit2b.xlsx")
+write.xlsx(results, "D:/Pubpeer Gender/modele_logit2b.xlsx")
 
 
 ## variables de controle : discipline
@@ -377,6 +377,7 @@ BIC(modele_logit3)
 
 results <- broom::tidy(modele_logit3)
 write.xlsx(results, "~/Documents/Pubpeer Gender/modele_logit3b.xlsx")
+write.xlsx(results, "D:/Pubpeer Gender/modele_logit3.xlsx")
 
 ## 
 
