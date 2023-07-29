@@ -250,6 +250,7 @@ reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as 
 data_comm = dbGetQuery(con,reqsql)
 # Transformer le format de la date du commentaire
 data_comm$date_com <- as.Date.character(data_comm$date_com)
+
 # extraire l'année depuis la colonne "date"
 data_comm$annee <- format(data_comm$date_com, "%Y")
 
@@ -293,6 +294,7 @@ retraction_data <- read_excel("~/Documents/Pubpeer Gender/retraction_data.xlsx")
 
 
 bdd_regr <- left_join(bdd_regr, retraction_data, by = "publication")
+write.xlsx(bdd_regr, "D:/Pubpeer Gender/bdd_regr.xlsx")
 
 
 
