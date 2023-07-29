@@ -66,42 +66,28 @@ doaj$combined_issn <- paste(doaj$Journal.ISSN..print.version., doaj$Journal.EISS
 # Utiliser separate_rows() pour éclater la colonne issn en plusieurs lignes
 doaj <- separate_rows(doaj, combined_issn, sep = ",\\s*", convert = FALSE)
 ######################################################
+# Données OpenAlex
+openalex <- read_excel("D:/bdd pubpeer/journals_openalex.xlsx")
 ######################################################
-# Bona Fide journals : see https://www.qoam.org/bfj/data
-bonaf <- read_excel("D:/bdd pubpeer/bfj-issns.xlsx")
 ######################################################
-######################################################
-# Scopus 
-scopus <- read_excel("D:/bdd pubpeer/SCOPUSextlistJanuary2023.xlsx")
-data_scopus <- scopus %>%
-  select(`Sourcerecord ID`,`Source Title (Medline-sourced journals are indicated in Green)`,
-         `Print-ISSN`,`E-ISSN`,`Active or Inactive`, `Open Access status`, `Source Type`,
-         `Publisher's Name`, `Publisher imprints grouped to main Publisher`)
-
-names(data_scopus) <- c("id_scopus","jnal_title", "issn", "eissn", "is_active", "is_oa", "type",
-                        "publisher_row", "publisher")
-######################################################
+# Analyse ----
 ######################################################
 
-# Fonction pour ajouter un tiret après 4 caractères
-add_dash_after_4_chars <- function(text) {
-  substr_part1 <- substr(text, 1, 4)
-  substr_part2 <- substr(text, 5, nchar(text))
-  return(paste(substr_part1, substr_part2, sep = "-"))
-}
-######################################################
-# Appliquer la fonction add_dash_after_4_chars aux colonnes "issn" et "eissn" du DataFrame
-data_scopus$issn <- sapply(data_scopus$issn, add_dash_after_4_chars)
-data_scopus$eissn <- sapply(data_scopus$eissn, add_dash_after_4_chars)
-######################################################
-# combiner issn et eissn
-data_scopus$combined_issn <- paste(data_scopus$issn, data_scopus$eissn, sep = ", ")
-# Utiliser separate_rows() pour éclater la colonne issn en plusieurs lignes
-data_scopus <- separate_rows(data_scopus, combined_issn, sep = ",\\s*", convert = FALSE)
-######################################################
+## Préparation données ----
+ # Exclure les publications de 2016 qui ont un seul commentaire du commentateur n°3845,
+ # plus d'infos, voir l'article de https://www-nature-com.inshs.bib.cnrs.fr/articles/540151a
 
-# Enrichir les infos sur les revues avec les éditeurs ----
+pub_a_exclure <- data_comm %>%
+  filter(Commentateurs_recodés == "3845" & year(DateCreated) == 2016) %>%
+  select(publication) %>%
+  unique() %>%
+  left_join(., nb_aut_com, by = "publication") %>%
+  unique() %>%
+  filter(nb_com == 1) %>% # publi avec un seul commentaire généré automatiquement : 47633 publications
+  select(publication) %>%
+  unique()
 
+# Nettoyer les données des publications de pubpeer
 # Extraire les colonnes "publication" et "issn"
 data_jnal <- data_pub %>%
   select(publication, issn)
@@ -117,26 +103,28 @@ data_jnal$issn <- sapply(data_jnal$issn, clean_issn)
 # Utiliser separate_rows() pour éclater la colonne issn en plusieurs lignes
 data_jnal <- separate_rows(data_jnal, issn, sep = ",\\s*", convert = FALSE)
 
-# matcher avec Scopus
-data_jnal2 <- left_join(data_jnal, data_scopus, by = c("issn" = "combined_issn"))
-
-# matcher avec Scopus
-data_jnal3 <- data_jnal2 %>%
-  filter(is.na(.$id_scopus))
-  
-
-data_jnal4 <- left_join(data_jnal3, doaj, by = c("issn" = "combined_issn"))
-
-data_jnal4 <- data_jnal4 %>%
-  filter(!is.na(.$Publisher))
 
 
+# Faire les calculs par revue
+df_jnal_pubpeer <- data_jnal %>%
+  filter(!(publication %in% pub_a_exclure$publication) & issn != "None") %>%
+  left_join(., openalex, by = "issn") %>%
+  select(-issn) %>%
+  unique() %>%
+  filter(!is.na(id))
 
-# Calculer les fréquences pour avoir une idée de la distribution des sites
-jwos <- df$Journal_title_WOS |>
-  fct_infreq() |> 
-  questionr::freq()
+# Comptes par édieur : PubPeer
+nb_edit_pubpeer <- df_jnal_pubpeer %>%
+  select(host_organization_name) %>%
+  group_by(host_organization_name) %>%
+  count()  
 
 
+# Comptes par édieur : tout openalex
+nb_edit_openalex <- openalex %>%
+  select(id, host_organization_name, works_count) %>%
+  unique() %>%
+  filter(!is.na(host_organization_name) & !is.na(works_count)) %>%
+  summarise(n = sum(works_count))
 
 
