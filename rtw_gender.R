@@ -210,7 +210,8 @@ df_retract2 <- read_excel("/Users/maddi/Documents/Pubpeer Gender/retraction_data
 retract_pubpeer <- df_retract %>%
   filter(is_retracted == 1 & !is.na(Gtype2)) %>%
   select(publication, ID_retractionwatch) %>%
-  unique()
+  unique() %>%
+  merge(., df_retract2, by = "publication")
 
 describe(retract_pubpeer$is_retracted)
 
@@ -225,5 +226,10 @@ verif <- df_nb_aut %>%
 
 ####################################
 # Est retractée avant qu'elle soit commentée dans Pubpeer
+df_nb_aut <- df_nb_aut %>%
+  left_join(retract_pubpeer, by = c("Record_ID" = "ID_retractionwatch")) 
 
+df_nb_aut <- df_nb_aut %>%
+  mutate(retract_before_pubpeer = ifelse(is.na(sum_nb_com_after_retract) & is.na(sum_nb_comm) | sum_nb_com_after_retract == sum_nb_comm, 1, 0))
 
+retractionwatch_gender <- write.xlsx(df_nb_aut, "/Users/maddi/Documents/Pubpeer Gender/retraction_data.xlsx")
