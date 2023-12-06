@@ -17,6 +17,7 @@ library(GenderInfer)
 library(openxlsx)
 library(readxl)
 library(stringi)
+library(gtsummary)
 
 #library(bibliometrix)
 # library(openalexR)
@@ -205,31 +206,67 @@ df_nb_aut$Gtype2 <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "
 
 ####################################
 df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
-df_retract2 <- read_excel("/Users/maddi/Documents/Pubpeer Gender/retraction_data.xlsx")
+df_retract_nb_comm <- read_excel("/Users/maddi/Documents/Pubpeer Gender/retraction_data.xlsx")
 
 retract_pubpeer <- df_retract %>%
   filter(is_retracted == 1 & !is.na(Gtype2)) %>%
-  select(publication, ID_retractionwatch) %>%
+  select(publication, ID_retractionwatch, Gtype2) %>%
   unique() %>%
   merge(., df_retract2, by = "publication")
 
-describe(retract_pubpeer$is_retracted)
+
+# Est retractée avant qu'elle soit commentée dans Pubpeer
+df <- df_nb_aut %>%
+  left_join(retract_pubpeer, by = c("Record_ID" = "ID_retractionwatch")) 
 
 ####################################
 # Ajouter une colonne in_pubpeer
-df_nb_aut <- df_nb_aut %>%
+df <- df %>%
   mutate(in_pubpeer = ifelse(Record_ID %in% retract_pubpeer$ID_retractionwatch, 1, 0))
 
-verif <- df_nb_aut %>%
+verif <- df %>%
   select(Record_ID, in_pubpeer) %>%
   unique() 
 
 ####################################
-# Est retractée avant qu'elle soit commentée dans Pubpeer
-df_nb_aut <- df_nb_aut %>%
-  left_join(retract_pubpeer, by = c("Record_ID" = "ID_retractionwatch")) 
-
-df_nb_aut <- df_nb_aut %>%
+df <- df %>%
   mutate(retract_before_pubpeer = ifelse(is.na(sum_nb_com_after_retract) & is.na(sum_nb_comm) | sum_nb_com_after_retract == sum_nb_comm, 1, 0))
 
-retractionwatch_gender <- write.xlsx(df_nb_aut, "/Users/maddi/Documents/Pubpeer Gender/retraction_data.xlsx")
+##
+df$Gtype3 <- ifelse(is.na(df$Gtype2.y) & df$nb_aut > 1, df$Gtype2.y,
+                    ifelse(is.na(df$Gtype2.y) & df$nb_aut == 1, df$Gtype2.x, df$Gtype2.y))
+
+##
+57479 
+retractionwatch_gender <- write.xlsx(df, "/Users/maddi/Documents/Pubpeer Gender/retraction_data.xlsx")
+#######################################
+#######################################
+#######################################
+#######################################
+
+######## Analyse des données ##########
+
+#######################################
+#######################################
+#######################################
+#######################################
+
+# Distribution des collab H-F dans Pubpeer et dans RW au sein des publications retractées
+######
+
+df %>%
+  select(Record_ID, Gtype3, in_pubpeer, retract_before_pubpeer) %>%
+  unique() %>%
+  filter(!is.na(Gtype3)) %>%
+  tbl_summary(
+    include = c(Gtype3, in_pubpeer),
+    by = (in_pubpeer),
+    sort = list(everything() ~ "frequency"),
+    statistic = list(
+      all_continuous() ~ c("{N_obs}") 
+    )
+  ) %>%
+  add_overall(last = TRUE) #, col_label = "**Ensemble** (effectif total: {N})")
+
+
+
