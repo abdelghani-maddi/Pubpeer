@@ -201,7 +201,7 @@ df_nb_aut$Gtype2 <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "
                                          )
                                   )
                            )
-)
+                    )
 
 
 ####################################
