@@ -15,6 +15,9 @@ library(readxl)
 author_metadat <- read.csv("~/Documents/Pubpeer Gender/Révisions QSS/randomSample/author_metadata.csv")
 paper2author <- read.csv("~/Documents/Pubpeer Gender/Révisions QSS/randomSample/paper2author.csv")
 
+paper_metadat <- read.csv("~/Documents/Pubpeer Gender/Révisions QSS/randomSample/paper_metadata.csv")
+paper2concept <- read.csv("~/Documents/Pubpeer Gender/Révisions QSS/randomSample/paper2concept.csv")
+
 # Quelques stats desc pour explorer les données
 
 # articles avec plus de 1 auteur
@@ -296,4 +299,58 @@ df %>%
   ) %>%
   add_overall(last = TRUE) #, col_label = "**Ensemble** (effectif total: {N})")
 
-  
+
+## Récupérer métadonnées OpenAlex
+
+id <- df_oa$paper %>%
+  unique()
+
+library(openalexR)
+
+oa_metadata_1 <- oa_fetch(
+  entity = "works",
+  id = id[1:100000],
+  verbose = TRUE
+)
+
+oa_metadata_2 <- oa_fetch(
+  entity = "works",
+  id = id[100001:200000],
+  verbose = TRUE
+)
+
+oa_metadata_3 <- oa_fetch(
+  entity = "works",
+  id = id[200001:300000],
+  verbose = TRUE
+)
+
+
+oa_metadata_4 <- oa_fetch(
+  entity = "works",
+  id = id[300001:400000],
+  verbose = TRUE
+)
+
+oa_metadata_5 <- oa_fetch(
+  entity = "works",
+  id = id[400001:500000],
+  verbose = TRUE
+)
+
+
+oa_metadata_6 <- oa_fetch(
+  entity = "works",
+  id = id[500001:600000],
+  verbose = TRUE
+)
+
+
+oa_metadata_7 <- oa_fetch(
+  entity = "works",
+  id = id[600001:600050],
+  verbose = TRUE
+)
+
+oa_metadata_all <- rbind(oa_metadata_1, oa_metadata_2, oa_metadata_3, oa_metadata_4, oa_metadata_5, oa_metadata_6)
+saveRDS(oa_metadata_all, "/Users/maddi/Documents/Pubpeer Gender/Révisions QSS/oa_metadata_all.rds")  
