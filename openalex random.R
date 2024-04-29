@@ -345,12 +345,68 @@ oa_metadata_6 <- oa_fetch(
   verbose = TRUE
 )
 
-
 oa_metadata_7 <- oa_fetch(
   entity = "works",
-  id = id[600001:600050],
+  id = id[600001:600002],
   verbose = TRUE
 )
 
 oa_metadata_all <- rbind(oa_metadata_1, oa_metadata_2, oa_metadata_3, oa_metadata_4, oa_metadata_5, oa_metadata_6)
 saveRDS(oa_metadata_all, "/Users/maddi/Documents/Pubpeer Gender/Révisions QSS/oa_metadata_all.rds")  
+
+ids <- id[500001:500005]
+ids2 <- c("W2755950973", "W2741809807")
+ids3 <- c("W3121474013", "W3121475943") #, "W3121476185", "W3121476484", "W3121479212")
+
+works_from_ids <- oa_fetch(
+  entity = "works",
+  id = ids2,
+  verbose = TRUE
+)
+
+
+works_from_ids3 <- oa_fetch(
+  entity = "works",
+  id = ids3,
+  verbose = TRUE
+)
+
+
+
+
+
+
+# Liste des identifiants d'œuvres à vérifier
+ids <- id[600001:600005]
+
+# Vérifier la validité des identifiants d'œuvres
+valid_ids <- character()
+invalid_ids <- character()
+
+for (work_id in ids) {
+  # Effectuer une requête pour vérifier si l'identifiant d'œuvre est valide
+  response <- GET(paste0("https://api.openalex.org/works/", work_id))
+  
+  # Vérifier le code de statut HTTP
+  if (response$status_code == 200) {
+    # L'identifiant d'œuvre est valide
+    valid_ids <- c(valid_ids, work_id)
+  } else {
+    # L'identifiant d'œuvre est invalide
+    invalid_ids <- c(invalid_ids, work_id)
+  }
+}
+
+# Afficher les identifiants d'œuvres valides et invalides
+cat("Identifiants d'œuvres valides :", valid_ids, "\n")
+cat("Identifiants d'œuvres invalides :", invalid_ids, "\n")
+
+# Si des identifiants d'œuvres invalides ont été trouvés, les corriger ou les supprimer de la liste
+if (length(invalid_ids) > 0) {
+  # Corriger ou supprimer les identifiants d'œuvres invalides de la liste ids
+  ids <- setdiff(ids, invalid_ids)
+}
+
+# Réessayer de récupérer les métadonnées en utilisant la liste corrigée d'identifiants d'œuvres
+works_from_ids <- oa_fetch(entity = "works", id = ids, verbose = TRUE)
+
