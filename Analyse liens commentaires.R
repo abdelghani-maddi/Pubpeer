@@ -55,6 +55,9 @@ reqsql= paste('select inner_id, publication, "DateCreated" as date_com, html as 
 data_comm = dbGetQuery(con,reqsql)
 
 # Transformer le format de la date du commentaire
+data_comm$date_com <- data_comm$DateCreated
+data_comm$comm <- data_comm$html
+
 data_comm$date_com <- as.Date.character(data_comm$date_com)
 
 ### Récupération des commentaires avec liens hypertextes ----

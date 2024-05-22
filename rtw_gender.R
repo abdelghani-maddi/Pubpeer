@@ -32,8 +32,13 @@ library(gtsummary)
 
 ## Données RetractionWatch ----
 rtw <- read_excel("~/Documents/Pubpeer Gender/RWDBDNLD04242023.xlsx", sheet = "RWDBDNLD04242023") ### bdd retractations (version avril 2023)
+rtw <- read_excel("D:/Pubpeer Gender/RWDBDNLD04242023.xlsx", sheet = "RWDBDNLD04242023") ### bdd retractations (version avril 2023)
+
 givenNames <- read_excel("~/Documents/Pubpeer Gender/gender_proba.xlsx")
+givenNames <- read_excel("D:/Pubpeer Gender/gender_proba.xlsx")
+
 givenNames2 <- read_excel("~/Documents/Pubpeer Gender/gender_proba_2.xlsx")
+givenNames2 <- read_excel("D:/Pubpeer Gender/gender_proba_2.xlsx")
 
 givenNames <- givenNames %>%
   select(given_name, gender, proba) %>%
@@ -125,10 +130,11 @@ df_final$gender_pro_06[is.na(df_final$gender) & nchar(df_final$FirstName) > 1] <
 df_final$gender_pro_06[df_final$proba < 0.6] <- "unisex"
 
 # nagender <- df_final %>%
-#   filter(is.na(gender_pro_06))
+#  filter(is.na(gender_pro_06))
+# rm(nagender)
+
 # Assigner "undefined" pour les cas où l'auteur est NA : 8 cas
 df_final$gender_pro_06[is.na(df_final$gender_pro_06)] <- "undefined"
-
 
 # Calcul de la proportion des femmes par publication
 ###
@@ -139,6 +145,9 @@ tbfin <- df_final %>%
   group_by(`Record ID`) %>%
   summarize(female_part = mean(gender_pro_06 == "female", na.rm = TRUE))
 
+################################################################################
+################################################################################
+################################################################################
 
 # Faire une jointure
 df_nb_aut <- df_final
@@ -189,7 +198,7 @@ df_nb_aut <- df_nb_aut %>%
 
 
 ##
-# Ajouter la variable "Gtype"
+# Ajouter la variable "Gtype2"
 df_nb_aut$Gtype2 <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "Man alone", 
                            ifelse(df_nb_aut$female_part == 1 & df_nb_aut$nb_aut == 1, "Woman alone",
                                   ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut > 1, "Collab. men only",
@@ -201,18 +210,26 @@ df_nb_aut$Gtype2 <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "
                                          )
                                   )
                            )
-)
+                    )
 
 
 ####################################
 df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
+df_retract <- read_excel("D:/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
+ 
 df_retract_nb_comm <- read_excel("/Users/maddi/Documents/Pubpeer Gender/retraction_data.xlsx")
+df_retract_nb_comm <- read_excel("D:/Pubpeer Gender/retraction_data.xlsx")
+
+###
+df_retract_nb_comm <- df_retract_nb_comm %>%
+  select(publication, sum_nb_com_before_retract, sum_nb_com_after_retract, sum_nb_comm, retract_before_pubpeer)
+
 
 retract_pubpeer <- df_retract %>%
   filter(is_retracted == 1 & !is.na(Gtype2)) %>%
   select(publication, ID_retractionwatch, Gtype2) %>%
   unique() %>%
-  merge(., df_retract2, by = "publication")
+  merge(., df_retract_nb_comm, by = "publication")
 
 
 # Est retractée avant qu'elle soit commentée dans Pubpeer
@@ -232,12 +249,12 @@ verif <- df %>%
 df <- df %>%
   mutate(retract_before_pubpeer = ifelse(is.na(sum_nb_com_after_retract) & is.na(sum_nb_comm) | sum_nb_com_after_retract == sum_nb_comm, 1, 0))
 
+df$Gtype3 <- ifelse(!is.na(df$Gtype2.y), df$Gtype2.y, df$Gtype2.x)
 ##
-df$Gtype3 <- ifelse(is.na(df$Gtype2.y) & df$nb_aut > 1, df$Gtype2.y,
-                    ifelse(is.na(df$Gtype2.y) & df$nb_aut == 1, df$Gtype2.x, df$Gtype2.y))
 
 ##
-57479 
+## 57479 
+
 retractionwatch_gender <- write.xlsx(df, "/Users/maddi/Documents/Pubpeer Gender/retraction_data.xlsx")
 #######################################
 #######################################
@@ -254,6 +271,12 @@ retractionwatch_gender <- write.xlsx(df, "/Users/maddi/Documents/Pubpeer Gender/
 # Distribution des collab H-F dans Pubpeer et dans RW au sein des publications retractées
 ######
 
+##
+data <- retraction_data %>%
+  select(Record_ID, Gtype, FirstName, nb_aut, proba, gender_pro_06, Gtype2, in_pubpeer, retract_before_pubpeer) %>%
+  unique()
+
+##
 df %>%
   select(Record_ID, Gtype3, in_pubpeer, retract_before_pubpeer) %>%
   unique() %>%
@@ -269,4 +292,25 @@ df %>%
   add_overall(last = TRUE) #, col_label = "**Ensemble** (effectif total: {N})")
 
 
+groupes_gender <- df %>%
+  select(Record_ID, Gtype3, in_pubpeer, sum_nb_com_after_retract, sum_nb_com_before_retract, sum_nb_comm) %>%
+  unique() %>%
+  mutate(com_avant_retract = ifelse(in_pubpeer == 1 & sum_nb_com_before_retract > 0, "Retracted after Pubpeer",
+                                    ifelse(in_pubpeer == 1 & sum_nb_com_before_retract == 0, "Retracted before Pubpeer",
+                                           ifelse(in_pubpeer == 0, "Retracted not in Pubpeer", NA))))
 
+groupes_gender %>%
+  select(Record_ID, Gtype3, in_pubpeer, com_avant_retract) %>%
+  unique() %>%
+  tbl_summary(
+    include = c(Gtype3, in_pubpeer, com_avant_retract),
+    by = (com_avant_retract),
+    sort = list(everything() ~ "frequency"),
+    statistic = list(
+      all_continuous() ~ c("{N_obs}") 
+    )
+  ) %>%
+  add_overall(last = TRUE) #, col_label = "**Ensemble** (effectif total: {N})")
+
+
+write.xlsx(groupes_gender, "D:/Pubpeer Gender/groupes_gender.xlsx")
