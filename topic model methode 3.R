@@ -288,49 +288,57 @@ servr::httd("D:/bdd pubpeer/Analyse commentaires/LDAvis")
 
 
 
-# Charger les bibliothèques nécessaires
-library(LDAvis)
-library(servr)
-
-# Calculer les matrices nécessaires pour LDAvis
-phi <- exp(fit$beta$logbeta[[1]])  # Matrice terme-thème
-theta <- fit$theta                 # Matrice thème-document
-doc.length <- sapply(out$documents, function(x) sum(x[2, ]))  # Longueur de chaque document
-vocab <- out$vocab                 # Vocabulaire utilisé
-term.frequency <- colSums(phi)     # Fréquence totale de chaque terme dans les documents
-
-# Créer le JSON nécessaire pour LDAvis
-json_lda <- createJSON(phi = phi,
-                       theta = theta,
-                       doc.length = doc.length,
-                       vocab = vocab,
-                       term.frequency = term.frequency)
-
-# Spécifier le répertoire de sortie
-output_dir <- "D:/Pubpeer/LDAvis"  # Remplacez par le chemin réel sur votre machine
-
-# Créer le répertoire de sortie si nécessaire
-dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
-
-# Sauvegarder le fichier JSON
-writeLines(json_lda, con = file.path(output_dir, "lda.json"))
-
 # Créer la visualisation LDAvis et sauvegarder le fichier HTML dans le répertoire spécifié
+serVis(json_lda, out.dir = output_dir, open.browser = )
 
-library(httpuv)
-startServer("127.0.0.1", 8080, list(
-  call = function(req) {
-    list(
-      status = 200,
-      headers = list(
-        "Content-Type" = "text/html"
-      ),
-      body = readLines("D:/Projets/Pubpeer/LDAvis/index.html")
-    )
-  }
-))
 
-serVis(json_lda, out.dir = output_dir, open.browser = T)
+
+###############################
+
+library(jsonlite)
+library(stringi)
+
+# Chemins des fichiers
+input_dir <- "D:/Pubpeer/LDAvis"
+output_file <- "D:/Pubpeer/LDAvis/index2.html"
+
+# Lire le fichier index.html
+index_html <- readLines(file.path(input_dir, "index.html"))
+
+# Supprimer les inclusions des fichiers externes (d3.v3.js, ldavis.js, lda.css)
+index_html[6:8] <- ""
+
+# Insérer le script d3.v3.js en ligne dans le HTML
+d3_v3_js <- readLines(file.path(input_dir, "d3.v3.js"))
+d3_v3_js <- append(d3_v3_js, "<script>", 0)
+d3_v3_js <- append(d3_v3_js, "</script>")
+index_html <- append(index_html, d3_v3_js, 6)
+
+# Lire et formater lda.json en une seule chaîne de caractères
+lda_json <- fromJSON(file.path(input_dir, "lda.json"))
+lda_json <- toJSON(lda_json)
+lda_json <- stri_escape_unicode(lda_json)
+
+# Insérer le contenu de lda.json dans ldavis.js et insérer ldavis.js en ligne dans le HTML
+ldavis_js <- readLines(file.path(input_dir, "ldavis.js"))
+ldavis_js[95] <- sprintf('    data = JSON.parse("%s");', lda_json)
+ldavis_js[1357] <- ""
+ldavis_js <- append(ldavis_js, "<script>", 0)
+ldavis_js <- append(ldavis_js, "</script>")
+index_html <- append(index_html, ldavis_js, 7 + length(d3_v3_js))
+
+# Insérer le CSS (lda.css) en ligne dans le HTML
+lda_css <- readLines(file.path(input_dir, "lda.css"), warn = FALSE)
+lda_css <- append(lda_css, "<style>", 0)
+lda_css <- append(lda_css, "</style>")
+index_html <- append(index_html, lda_css, 8 + length(d3_v3_js) + length(ldavis_js))
+
+# Écrire le fichier HTML autonome
+writeLines(index_html, output_file)
+
+
+###############################
+
 
 
 # ----------------------------------- ------------------------------------------
