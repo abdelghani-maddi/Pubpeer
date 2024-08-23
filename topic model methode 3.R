@@ -316,9 +316,21 @@ dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 writeLines(json_lda, con = file.path(output_dir, "lda.json"))
 
 # Créer la visualisation LDAvis et sauvegarder le fichier HTML dans le répertoire spécifié
-serVis(json_lda, out.dir = output_dir, open.browser = FALSE)
 
+library(httpuv)
+startServer("127.0.0.1", 8080, list(
+  call = function(req) {
+    list(
+      status = 200,
+      headers = list(
+        "Content-Type" = "text/html"
+      ),
+      body = readLines("D:/Projets/Pubpeer/LDAvis/index.html")
+    )
+  }
+))
 
+serVis(json_lda, out.dir = output_dir, open.browser = T)
 
 
 # ----------------------------------- ------------------------------------------
