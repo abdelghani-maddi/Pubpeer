@@ -299,8 +299,8 @@ library(jsonlite)
 library(stringi)
 
 # Chemins des fichiers
-input_dir <- "D:/Pubpeer/LDAvis"
-output_file <- "D:/Pubpeer/LDAvis/index2.html"
+input_dir <- "D:/Pubpeer/LDAvis/"
+output_file <- "D:/Pubpeer/ldavis.html"
 
 # Lire le fichier index.html
 index_html <- readLines(file.path(input_dir, "index.html"))
