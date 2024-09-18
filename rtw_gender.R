@@ -314,3 +314,22 @@ groupes_gender %>%
 
 
 write.xlsx(groupes_gender, "D:/Pubpeer Gender/groupes_gender.xlsx")
+
+
+
+###############
+
+prop_w_disc_18_09_24 <- final_data %>%
+  filter(name == "field") %>%
+  left_join(df_oa2, by = c("paper" = "link_paper")) 
+
+prop_w_disc_18_09_24 <- prop_w_disc_18_09_24 %>%
+  select(paper, display_name, female_part) %>%
+  unique() %>%
+  group_by(display_name) %>%
+  summarise(moy = mean(female_part, na.rm = TRUE))
+
+prop_total <- df_oa2 %>%
+  select(paper, female_part) %>%
+  unique() 
+mean(prop_total$female_part)

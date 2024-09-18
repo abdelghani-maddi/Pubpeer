@@ -231,29 +231,11 @@ qqcat("stm done\n")
 
 toLDAvis(mod=fit, docs=out$documents)
 
+###############################
+# affichage simple pour l'analyse
 toLDAvis(mod=fit, docs=out$documents)
-serVis(fit, out.dir = 'LDAvis v2', open.browser = FALSE)
 
-
-library(stm)
-library(LDAvis)
-
-# Extraire les probabilités des termes par sujet
-sage_labels <- stm::sageLabels(fit)
-phi <- do.call(rbind, lapply(sage_labels$probs, as.matrix))
-
-# Extraire la distribution des sujets par document (theta)
-theta <- fit$theta
-
-# Obtenir la longueur des documents, le vocabulaire, et la fréquence des termes
-doc.length <- rowSums(out$documents)
-vocab <- colnames(out$documents)
-term.frequency <- colSums(out$documents)
-
-
-
-
-setwd("D:/bdd pubpeer/Analyse commentaires")
+# Procéder à la création d'un fichier json pour pouvoir exporter et publier en ligne le résultat
 library(LDAvis)
 library(servr)
 
@@ -279,22 +261,16 @@ writeLines(json_lda, con = file.path('LDAvis', "lda.json"))
 # Créer la visualisation LDAvis
 serVis(json_lda, out.dir = 'LDAvis', open.browser = FALSE)
 
-library(servr)
 
 # Servir le dossier LDAvis
-httd('LDAvis')
-
-servr::httd("D:/bdd pubpeer/Analyse commentaires/LDAvis")
-
-
-
+# library(servr)
+# httd('LDAvis')
+# servr::httd("D:/bdd pubpeer/Analyse commentaires/LDAvis")
 # Créer la visualisation LDAvis et sauvegarder le fichier HTML dans le répertoire spécifié
-serVis(json_lda, out.dir = output_dir, open.browser = )
 
-
-
-###############################
-
+#####################################################################
+# procédure pour enregistrer un fichier indépendant html car le fichier dans le système LDAvis
+# est difficile à exécuter suite aux restrictions des navigateurs.
 library(jsonlite)
 library(stringi)
 
@@ -336,7 +312,8 @@ index_html <- append(index_html, lda_css, 8 + length(d3_v3_js) + length(ldavis_j
 # Écrire le fichier HTML autonome
 writeLines(index_html, output_file)
 
-
+# fin de la procédure.
+###############################
 ###############################
 
 
@@ -385,8 +362,8 @@ library(RColorBrewer)
 # Définir les paramètres graphiques pour afficher plusieurs nuages de mots
 
 # Ajuster les marges pour réduire l'espace entre les graphiques
-par(mfrow = c(2, 2),            # Disposition en grille 3x3
-    mar = c(0.5, 0, 0.5, 0),    # Marges autour de chaque graphique (bas, gauche, haut, droite)
+par(mfrow = c(1, 1),            # Disposition en grille 3x3
+    mar = c(0.1, 0, 0.1, 0),    # Marges autour de chaque graphique (bas, gauche, haut, droite)
     oma = c(0, 0, 0, 0),        # Marges extérieures (bas, gauche, haut, droite)
     mgp = c(3, 1, 0),           # Position des axes (ne pas trop les modifier ici)
     xpd = NA,                   # Permet de dessiner en dehors de la région des marges
@@ -399,7 +376,7 @@ my_colors <- brewer.pal(8, "Dark2")  # Choisissez une palette de couleurs esthé
 # Génération des nuages de mots
 cloud(fit, 
       topic = 10,                  # Nombre de sujets à afficher
-      max.words = 250,              # Limite de mots affichés par nuage
+      max.words = 300,              # Limite de mots affichés par nuage
       scale = c(2, 0.5),           # Taille maximale et minimale des mots
       colors = my_colors,          # Palette de couleurs pour les mots
       random.order = FALSE,        # Les mots les plus fréquents sont affichés en premier
@@ -466,7 +443,9 @@ findTopic(fit, c("autonomous"), n = 20)
     geom_bar() +
     scale_fill_hue(direction = 1) +
     theme_minimal()  
-  
+ 
+write_xlsx(topic_by_year_long, "topic_by_year_long.xlsx")  
+   
   ggplot(topic_by_year_long) +
     aes(x = annee, y = proportion, fill = topic) +
     geom_col() +
