@@ -173,18 +173,60 @@ oa_rtw_gender$gender_pro_06[is.na(oa_rtw_gender$gender_pro_06)] <- "undefined"
 ###
 `%not_in%` <- purrr::negate(`%in%`)
 
-write.xlsx(oa_rtw_gender, "D:/Pubpeer Gender/oa_rtw_gender.xlsx")
 
 oa_rtw_gender_def_only <- oa_rtw_gender %>%
   subset(., gender_pro_06 %not_in% c("initials", "unisex", "undefined")) %>%
-  select(id, nb_auteurs2, nb_auteurs, gender_pro_06,)
+  select(id, nb_auteurs2, nb_auteurs, nom_prenoms, gender_pro_06,
+         publication_date,is_oa,grants,cited_by_count,
+         woman_first,man_first,topics,is_retracted) %>%
+  unique() %>%
   group_by(id) %>%
-  summarize(female_part = mean(gender_pro_06 == "female", na.rm = TRUE))
+  mutate(female_part = mean(gender_pro_06 == "female", na.rm = TRUE))
+oa_rtw_gender_def_only$is_retracted <- TRUE
+write.xlsx(oa_rtw_gender_def_only, "D:/Pubpeer Gender/oa_rtw_gender_def_only.xlsx")
 
+rtw_gender_fin <- oa_rtw_gender_def_only %>%
+  select(id, nb_auteurs2, nb_auteurs,female_part,
+         publication_date,is_oa,grants,cited_by_count,
+         woman_first,man_first,topics,is_retracted) %>%
+  unique()
+##################################################################################
+# Ajouter la variable "Gtype"
+rtw_gender_fin$Gtype <- ifelse(rtw_gender_fin$female_part == 0 & rtw_gender_fin$nb_auteurs == 1, "Man alone", 
+                          ifelse(rtw_gender_fin$female_part == 1 & rtw_gender_fin$nb_auteurs == 1, "Woman alone",
+                                 ifelse(rtw_gender_fin$female_part == 0 & rtw_gender_fin$nb_auteurs > 1, "Collab. men only",
+                                        ifelse(rtw_gender_fin$female_part == 1 & rtw_gender_fin$nb_auteurs > 1, "Collab. women only",
+                                                      ifelse(rtw_gender_fin$female_part > 0 & rtw_gender_fin$female_part < 1 & rtw_gender_fin$nb_auteurs > 1 & rtw_gender_fin$woman_first==1, "Collab. men-women w first", 
+                                                             ifelse(rtw_gender_fin$female_part > 0 & rtw_gender_fin$female_part < 1 & rtw_gender_fin$nb_auteurs > 1 & rtw_gender_fin$man_first==1, "Collab. men-women m first", "first author not identified")
+                                                      )
+                                               )
+                                        )
+                                 )
+                          )
 
 
 ##################################################################################
+## Extraire les topics
+rtw_gender_fin$paper <- rtw_gender_fin$id
+
+# Extraire les tableaux et ajouter l'id correspondant de chaque ligne
+list_of_tables_with_id <- map2(rtw_gender_fin$topics, rtw_gender_fin$paper, function(tbl, paper) {
+  tbl <- tbl %>%
+    mutate(rtw_id = paper)  # Ajouter l'id de rtw_gender_fin à chaque tableau
+  return(tbl)
+})
+
+# Combiner tous les tableaux en un seul dataframe (si même structure)
+combined_tables_with_id <- bind_rows(list_of_tables_with_id)
+
+rtw_domains <- combined_tables_with_id %>%
+  filter(name == "domain") %>%
+  select(name, display_name, rtw_id) %>%
+  unique()
 ##################################################################################
+##################################################################################
+##################################################################################
+
 ##################################################################################
 
 
@@ -205,7 +247,7 @@ bdd_disc_reg$Gtype2_rec <- bdd_disc_reg$Gtype2 %>%
   )
 
  bdd_disc_reg_na_aut <- bdd_disc_reg %>%
-   filter(is.na(nb_aut))
+   filter(is.na(nb_auteurs))
 
 ## Réordonnancement de bdd_disc_reg$Gtype2_rec pour la ref dans la regression
 bdd_disc_reg$Gtype2_rec <- bdd_disc_reg$Gtype2_rec %>%
