@@ -50,7 +50,7 @@ givenNames2 <- givenNames2 %>%
 
 givenNames <- bind_rows(givenNames, givenNames2)
 rm(givenNames2)
-
+write.xlsx(givenNames, "D:/Pubpeer Gender/gender_proba_3.xlsx")
 # Utiliser la fonction separate_rows pour séparer les valeurs de la colonne 'Author' en lignes
 rtw_melted <- rtw %>%
   separate_rows(Author, sep = ";") %>%  
@@ -215,7 +215,7 @@ df_nb_aut$Gtype2 <- ifelse(df_nb_aut$female_part == 0 & df_nb_aut$nb_aut == 1, "
 
 ####################################
 df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
-df_retract <- read_excel("D:/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
+df_retract <- readxl::read_excel("D:/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
  
 df_retract_nb_comm <- read_excel("/Users/maddi/Documents/Pubpeer Gender/retraction_data.xlsx")
 df_retract_nb_comm <- read_excel("D:/Pubpeer Gender/retraction_data.xlsx")
