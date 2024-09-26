@@ -31,7 +31,18 @@ oa_rtw$nb_auteurs2 <- sapply(oa_rtw$au_ids, function(x) {
 })
 ##################################################################################
 ##################################################################################
+# Ne pas tenir compte des notices :
+# retirer les notices des données : ce ne sont pas des articles mais juste des notices
 
+a_retirer <- oa_rtw %>%
+  filter(str_detect(tolower(title), "retraction not")) %>%
+  select(id) %>%
+  distinct()
+
+oa_rtw <- oa_rtw %>%
+  filter(!(.$id %in% a_retirer$id))
+
+###
 ##################################################################################
 ##################################################################################
 # extraire nom prenom des auteurs
@@ -223,12 +234,33 @@ rtw_domains <- combined_tables_with_id %>%
   filter(name == "domain") %>%
   select(name, display_name, rtw_id) %>%
   unique()
-##################################################################################
+
 ##################################################################################
 ##################################################################################
 
+rtw_gender_fin$grants <- as.character(rtw_gender_fin$grants)
+rtw_gender_fin$grants <- ifelse(rtw_gender_fin$grants == "NA", FALSE, TRUE)
+
 ##################################################################################
 
+rtw_gender_fin_gd_disc <- rtw_gender_fin %>%
+  left_join(., rtw_domains, by = c("id" = "rtw_id"))
+
+##################################################################################
+##################################################################################
+## Recodage de rtw_gender_fin_gd_disc$Gtype en rtw_gender_fin_gd_disc$Gtype2_rec
+rtw_gender_fin_gd_disc$Gtype2_rec <- rtw_gender_fin_gd_disc$Gtype %>%
+  fct_recode(
+    "Men-Women | M first" = "Collab. men-women m first",
+    "Men-Women | W first" = "Collab. men-women w first",
+    "Men only" = "Collab. men only",
+    "Women only" = "Collab. women only",
+    NULL = "first author not identified"
+  )
+######
+rtw_gender_fin_gd_disc$publication_year <- year(rtw_gender_fin_gd_disc$publication_date)
+
+################################################################
 
 library(labelled)
 library(tidyverse)
@@ -246,30 +278,11 @@ bdd_disc_reg$Gtype2_rec <- bdd_disc_reg$Gtype2 %>%
     NULL = "First author not identified"
   )
 
- bdd_disc_reg_na_aut <- bdd_disc_reg %>%
+bdd_disc_reg_na_aut <- bdd_disc_reg %>%
    filter(is.na(nb_auteurs))
 
-## Réordonnancement de bdd_disc_reg$Gtype2_rec pour la ref dans la regression
-bdd_disc_reg$Gtype2_rec <- bdd_disc_reg$Gtype2_rec %>%
-  fct_relevel(
-    "Man alone", "Men-Women | M first", "Men-Women | W first",
-    "Women only", "Men only", "Woman alone"
-  )
 
 
-# retirer les notices des données : ce ne sont pas des articles mais juste des notices
-
-a_retirer <- oa_rtw %>%
-  filter(str_detect(tolower(title), "retraction not")) %>%
-  select(id) %>%
-  distinct()
-
-bdd_disc_reg_ss_notices <- bdd_disc_reg %>%
-  filter(!(.$id %in% a_retirer$id))
-
-bdd_disc_reg_ss_notices$grants <- as.factor(bdd_disc_reg_ss_notices$grants)
-
-###
 bdd_disc_reg_ss_notices[, 9:27] <- lapply(bdd_disc_reg_ss_notices[, 9:27], function(x) ifelse(x != 0, 1, 0))
 ###
 
@@ -297,60 +310,123 @@ var_label(bdd_disc_reg_ss_notices_gdisc$publication_year) <- "Publication year"
 var_label(bdd_disc_reg_ss_notices_gdisc$disc) <- "Domain"
 
 
+
+
+####
+
+##################################################################################
+
+## Selection data pour regression : RW
+bdd_disc_reg_rtw <- rtw_gender_fin_gd_disc %>%
+  select(id, nb_auteurs, publication_year, is_oa, is_retracted, grants,
+         display_name, cited_by_count, Gtype2_rec) %>%
+  filter(!is.na(Gtype2_rec))
+names(bdd_disc_reg_rtw) <- c("id", "nb_aut", "publication_year", "is_oa", 
+                             "is_retracted", "grants",
+                             "disc", "cited_by_count", "Gtype2_rec")
+bdd_disc_reg_rtw$bdd <- "RetractionWatch"
+
+###
+bdd_disc_reg_rtw$is_oa <- as.factor(bdd_disc_reg_rtw$is_oa)
+bdd_disc_reg_rtw$is_retracted <- as.factor(bdd_disc_reg_rtw$is_retracted)
+bdd_disc_reg_rtw$grants <- as.factor(bdd_disc_reg_rtw$grants)
+###
+
+
+## Selection data pour regression : OpenAlex
+bdd_disc_reg_oax <- bdd_disc_reg_ss_notices_gdisc %>%
+  select(id, nb_aut, publication_year, is_oa, is_retracted, grants,
+         disc, cited_by_count, Gtype2_rec)%>%
+  filter(!is.na(Gtype2_rec))
+bdd_disc_reg_oax$bdd <- "OpenAlex"
+
+bdd_disc_reg_cbind <- rbind(bdd_disc_reg_rtw, bdd_disc_reg_oax)
+
+##################################################################################
 ## Réordonnancement de bdd_disc_reg_ss_notices_gdisc$disc
-bdd_disc_reg_ss_notices_gdisc$disc <- bdd_disc_reg_ss_notices_gdisc$disc %>%
+bdd_disc_reg_cbind$disc <- bdd_disc_reg_cbind$disc %>%
   fct_relevel(
     "Life Sciences", "Health Sciences", "Physical Sciences", "Social Sciences"
   )
 
+# ###
+## Réordonnancement de bdd_disc_reg$Gtype2_rec pour la ref dans la regression
+bdd_disc_reg_cbind$Gtype2_rec <- bdd_disc_reg_cbind$Gtype2_rec %>%
+  fct_relevel(
+    "Man alone", "Men-Women | W first", "Men-Women | M first", 
+    "Women only", "Men only", "Woman alone"
+  )
 
-####
-# Récupérer nombre d'auteurs des publications rétractées
+bdd_disc_reg_cbind$is_retracted <- bdd_disc_reg_cbind$is_retracted %>%
+  fct_relevel(
+    "FALSE", "TRUE"
+  )
+###
+bdd_disc_reg_cbind <- bdd_disc_reg_cbind %>%
+  filter(!is.na(disc), !is.na(is_oa))
+### 
 
-df_retract_nb_aut <- df_retract %>%
-  filter(is_retracted == 1) %>%
-  select(id, nb_aut)
+#bdd_disc_reg_ss_notices_gdisc$is_medium_team <- ifelse(bdd_disc_reg_ss_notices_gdisc$nb_aut >1 & bdd_disc_reg_ss_notices_gdisc$nb_aut <5 , 1,0)
 
-####
+###
 
+## Recodage de bdd_disc_reg_cbind$nb_aut en bdd_disc_reg_cbind$nb_aut_rec
+bdd_disc_reg_cbind$nb_aut_rec <- cut(bdd_disc_reg_cbind$nb_aut,
+                                     include.lowest = TRUE,
+                                     right = FALSE,
+                                     dig.lab = 4,
+                                     breaks = c(0, 1, 3.5, 8.5, 15.5, 31.5, 200)
+)
 
-bdd_disc_reg_ss_notices_gdisc <- bdd_disc_reg_ss_notices_gdisc %>%
-  filter(!is.na(nb_aut), !is.na(Gtype2))
-
-
-## Transform nb_aut into a categorical variable
-bdd_disc_reg_ss_notices_gdisc$nb_aut_cat <- cut(bdd_disc_reg_ss_notices_gdisc$nb_aut,
-                                           breaks = c(0,1,5,10,20, 200),  # Intervals
-                                           # labels = c("Small team (1-5)", "Medium team (6-10)", "Large team (>10)"),
-                                           right = TRUE)  # Includes upper bound
-
-## Recodage de bdd_disc_reg_ss_notices_gdisc$nb_aut en bdd_disc_reg_ss_notices_gdisc$nb_aut_rec
-bdd_disc_reg_ss_notices_gdisc$nb_aut_rec <- cut(bdd_disc_reg_ss_notices_gdisc$nb_aut,
+## Recodage de bdd_disc_reg_cbind$nb_aut en bdd_disc_reg_cbind$nb_aut_rec
+bdd_disc_reg_cbind$nb_aut_rec <- cut(bdd_disc_reg_cbind$nb_aut,
   include.lowest = TRUE,
   right = FALSE,
   dig.lab = 4,
-  breaks = c(1, 2, 5, 10, 200)
+  breaks = c(1, 2, 5, 10, 20, 200)
 )
+###
 
-
-# ###
-# 
-bdd_disc_reg_ss_notices_gdisc$is_medium_team <- ifelse(bdd_disc_reg_ss_notices_gdisc$nb_aut >1 & bdd_disc_reg_ss_notices_gdisc$nb_aut <5 , 1,0)
+# Transformer en colonnes binaires
+bdd_disc_reg_cbind_pivot <- bdd_disc_reg_cbind %>%
+  mutate(value = 1) %>%
+  pivot_wider(names_from = disc, values_from = value, values_fill = 0)
 
 ###
 res <- glm(is_retracted ~ 
              Gtype2_rec +
-             is_large_team +
-             is_medium_team + 
+             #is_large_team +
+             #is_medium_team + 
              is_oa + 
              log(1+cited_by_count) + 
              #log(nb_aut) +  
-             #nb_aut_rec +
+             nb_aut_rec +
              grants +  
              publication_year + 
              disc,
              #`Health Sciences` + `Life Sciences` + `Physical Sciences`,
-           data = bdd_disc_reg_ss_notices_gdisc,
+           data = bdd_disc_reg_cbind,
+           family =  binomial(logit))
+
+summary(res)
+###
+bdd_disc_reg_cbind2 <- bdd_disc_reg_cbind %>%
+  select(id, is_retracted, Gtype2_rec) %>%
+  distinct()
+###
+
+res <- glm(is_retracted ~ 
+             Gtype2_rec, #+
+             #is_large_team +
+             #is_medium_team + 
+             # is_oa + 
+             # log(1+cited_by_count) + 
+             # #log(nb_aut) +  
+             # nb_aut_rec +
+             # grants +  
+             # publication_year + 
+             # disc,
+           data = bdd_disc_reg_cbind2,
            family =  binomial(logit))
 # grants +
 #Biology + Medicine + Engineering + Mathematics + Psychology,
@@ -373,3 +449,107 @@ forest_model(res) +
   )
 
 
+library(gtsummary)
+bdd_disc_reg_cbind %>% 
+  select(id, Gtype2_rec, bdd) %>%
+  unique() %>%
+  tbl_summary(
+    include = c(Gtype2_rec),
+    by = bdd,
+    sort = list(everything() ~ "frequency")
+  ) %>%
+  add_overall(last = TRUE, col_label = "**Overall** (# {N})")  
+
+
+#######################################
+
+
+# Sélectionner un échantillon aléatoire des "FALSE"
+false_sample <- bdd_disc_reg_cbind_pivot[bdd_disc_reg_cbind_pivot$is_retracted == "FALSE", ]
+false_sample <- false_sample[sample(nrow(false_sample), 17793), ]
+
+# Sélectionner toutes les lignes "TRUE"
+true_sample <- bdd_disc_reg_cbind_pivot[bdd_disc_reg_cbind_pivot$is_retracted == "TRUE", ]
+
+# Combiner les deux échantillons pour créer un échantillon équilibré
+balanced_data <- rbind(false_sample, true_sample)
+
+# Vérifier la répartition
+table(balanced_data$is_retracted)
+
+#############################################################
+# Séparer les publications avec 0 citation
+balanced_data$citation_class <- ifelse(balanced_data$cited_by_count == 0, "0 citation", NA)
+
+# Calculer les déciles uniquement pour les publications avec > 0 citation
+deciles <- quantile(balanced_data$cited_by_count[balanced_data$cited_by_count > 0], 
+                    probs = seq(0, 1, by = 0.1), na.rm = TRUE)
+
+# Ajouter un petit jitter pour s'assurer que les valeurs des déciles sont uniques
+deciles_jitter <- deciles + seq(0, length(deciles) - 1) * 1e-5
+
+# Créer des classes pour les publications avec des citations > 0
+balanced_data$citation_class[balanced_data$cited_by_count > 0] <- cut(balanced_data$cited_by_count[balanced_data$cited_by_count > 0],
+                                                                      breaks = c(-Inf, deciles_jitter[2], deciles_jitter[3], 
+                                                                                 deciles_jitter[6], deciles_jitter[9], Inf),
+                                                                      labels = c("80-100%", "50-80%", "20-50%", "10-20%", "Top 10%"))
+
+
+# Vérifier la répartition des classes
+table(balanced_data$citation_class)
+
+
+## Recodage de balanced_data$cited_by_count en balanced_data$cited_by_count_rec
+balanced_data$cited_by_count_rec <- cut(balanced_data$cited_by_count,
+                                        include.lowest = TRUE,
+                                        right = FALSE,
+                                        dig.lab = 4,
+                                        breaks = c(0,1, 18.5, 80.5, 7399)
+)
+
+
+#############################################################
+#############################################################
+#############################################################
+#############################################################
+# rtw
+id_paper_stat_jnal_rtw <- oa_rtw %>%
+  left_join(., stats_jnals, by = "so_id") %>%
+  select(id, so_id, two_yr_mean_citedness, h_index, i10_index) %>%
+  unique()
+
+#oa
+stats_jnals$journal_id <- gsub("https://openalex.org/", "", stats_jnals$so_id)
+
+id_paper_stat_jnal_oa <- paper_metadat %>%
+  filter(!(journal_id=="NONE")) %>%
+  left_join(., stats_jnals, by = "journal_id") %>%
+  select(id, journal_id, two_yr_mean_citedness, h_index, i10_index) %>%
+  unique()
+
+
+#############################################################
+#############################################################
+#############################################################
+#############################################################
+
+# Ajuster le modèle sur l'échantillon équilibré
+model_balanced <- glm(is_retracted ~ 
+                      Gtype2_rec +
+                      #is_large_team +
+                      #is_medium_team + 
+                      is_oa + 
+                      #log(1+cited_by_count) +
+                      cited_by_count_rec +
+                      #log(nb_aut) +  
+                      nb_aut_rec +
+                      grants +  
+                      publication_year + 
+                      `Health Sciences` +
+                      `Social Sciences` +
+                      `Physical Sciences`,
+                      
+                      family = binomial(logit), data = balanced_data)
+
+summary(model_balanced)
+forest_model(model_balanced)
