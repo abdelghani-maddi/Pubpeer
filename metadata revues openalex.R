@@ -120,3 +120,30 @@ stats_jnals <- cbind(jnal_metadata_rtw_oa$id, summary_stats_df)
 colnames(stats_jnals) <- c("so_id", "two_yr_mean_citedness", "h_index", "i10_index")
 
 saveRDS(stats_jnals, "D:/Pubpeer Gender/stats_jnals.rds")
+
+
+########################################################""
+
+#############################################################
+# rtw
+id_paper_stat_jnal_rtw <- oa_rtw %>%
+  left_join(., stats_jnals, by = "so_id") %>%
+  select(id, so_id, two_yr_mean_citedness, h_index, i10_index) %>%
+  unique()
+
+#oa
+stats_jnals$journal_id <- gsub("https://openalex.org/", "", stats_jnals$so_id)
+
+id_paper_stat_jnal_oa <- paper_metadat %>%
+  filter(!(journal_id=="NONE")) %>%
+  left_join(., stats_jnals, by = "journal_id") %>%
+  select(id, journal_id, two_yr_mean_citedness, h_index, i10_index) %>%
+  unique()
+
+id_paper_stat_jnal_oa$id <- paste0("https://openalex.org/",id_paper_stat_jnal_oa$id)
+
+id_paper_stat_jnal_oa <- rename(id_paper_stat_jnal_oa, so_id = journal_id)
+
+
+id_paper_stat_jnal <- rbind(id_paper_stat_jnal_rtw, id_paper_stat_jnal_oa)
+saveRDS(id_paper_stat_jnal, "D:/Pubpeer Gender/id_paper_stat_jnal.rds")

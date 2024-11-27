@@ -415,6 +415,8 @@ bdd_disc_reg_cbind2 <- bdd_disc_reg_cbind %>%
   distinct()
 ###
 
+
+
 res <- glm(is_retracted ~ 
              Gtype2_rec, #+
              #is_large_team +
@@ -462,14 +464,22 @@ bdd_disc_reg_cbind %>%
 
 
 #######################################
+#############################################################
+#############################################################
+
+bdd_disc_reg_cbind_pivot2 <- bdd_disc_reg_cbind_pivot %>%
+  left_join(id_paper_stat_jnal, by = "id")
+
+#############################################################
+#############################################################
 
 
 # Sélectionner un échantillon aléatoire des "FALSE"
-false_sample <- bdd_disc_reg_cbind_pivot[bdd_disc_reg_cbind_pivot$is_retracted == "FALSE", ]
-false_sample <- false_sample[sample(nrow(false_sample), 17793), ]
+false_sample <- bdd_disc_reg_cbind_pivot2[bdd_disc_reg_cbind_pivot2$is_retracted == "FALSE", ]
+false_sample <- false_sample[sample(nrow(false_sample), 23462), ]
 
 # Sélectionner toutes les lignes "TRUE"
-true_sample <- bdd_disc_reg_cbind_pivot[bdd_disc_reg_cbind_pivot$is_retracted == "TRUE", ]
+true_sample <- bdd_disc_reg_cbind_pivot2[bdd_disc_reg_cbind_pivot2$is_retracted == "TRUE", ]
 
 # Combiner les deux échantillons pour créer un échantillon équilibré
 balanced_data <- rbind(false_sample, true_sample)
@@ -478,78 +488,368 @@ balanced_data <- rbind(false_sample, true_sample)
 table(balanced_data$is_retracted)
 
 #############################################################
-# Séparer les publications avec 0 citation
-balanced_data$citation_class <- ifelse(balanced_data$cited_by_count == 0, "0 citation", NA)
 
-# Calculer les déciles uniquement pour les publications avec > 0 citation
-deciles <- quantile(balanced_data$cited_by_count[balanced_data$cited_by_count > 0], 
-                    probs = seq(0, 1, by = 0.1), na.rm = TRUE)
+#############################################################
+#############################################################
+#############################################################
 
-# Ajouter un petit jitter pour s'assurer que les valeurs des déciles sont uniques
-deciles_jitter <- deciles + seq(0, length(deciles) - 1) * 1e-5
+## Réordonnancement de balanced_data$Gtype2_rec
+balanced_data$Gtype2_rec <- balanced_data$Gtype2_rec %>%
+  fct_relevel(
+    "Man alone", "Women only", "Men-Women | M first", "Men only", 
+    "Men-Women | W first", "Woman alone"
+  )
 
-# Créer des classes pour les publications avec des citations > 0
-balanced_data$citation_class[balanced_data$cited_by_count > 0] <- cut(balanced_data$cited_by_count[balanced_data$cited_by_count > 0],
-                                                                      breaks = c(-Inf, deciles_jitter[2], deciles_jitter[3], 
-                                                                                 deciles_jitter[6], deciles_jitter[9], Inf),
-                                                                      labels = c("80-100%", "50-80%", "20-50%", "10-20%", "Top 10%"))
+## Réordonnancement de balanced_data$Gtype2_rec
+bdd_disc_reg_cbind_pivot2$Gtype2_rec <- bdd_disc_reg_cbind_pivot2$Gtype2_rec %>%
+  fct_relevel(
+    "Woman alone", "Men-Women | M first", "Men only", "Man alone",
+    "Men-Women | W first", "Women only"
+  )
 
 
-# Vérifier la répartition des classes
-table(balanced_data$citation_class)
+balanced_data_ss_na <- balanced_data %>%
+  filter(!is.na(so_id), !is.na(two_yr_mean_citedness))
+
+bdd_disc_reg_cbind_pivot2_ss_na <- bdd_disc_reg_cbind_pivot2 %>%
+  filter(!is.na(so_id), !is.na(two_yr_mean_citedness))
 
 
-## Recodage de balanced_data$cited_by_count en balanced_data$cited_by_count_rec
-balanced_data$cited_by_count_rec <- cut(balanced_data$cited_by_count,
-                                        include.lowest = TRUE,
-                                        right = FALSE,
-                                        dig.lab = 4,
-                                        breaks = c(0,1, 18.5, 80.5, 7399)
+# is mid-large team
+# balanced_data_ss_na$is_samll_mid_team <- ifelse((balanced_data_ss_na$nb_aut >1 & 
+#                                              balanced_data_ss_na$nb_aut <11), 1, 0)
+
+balanced_data_ss_na$is_mid_team <- ifelse((balanced_data_ss_na$nb_aut >1 &
+                                             balanced_data_ss_na$nb_aut <9), 1, 0)
+
+balanced_data_ss_na$is_mid2_team <- ifelse((balanced_data_ss_na$nb_aut >4 &
+                                             balanced_data_ss_na$nb_aut <10), 1, 0)
+
+
+balanced_data_ss_na$sup10 <- ifelse(balanced_data_ss_na$nb_aut >=10, 1, 0)
+
+# is_retracted_nbaut <- balanced_data_ss_na %>%
+#   filter(is_retracted == TRUE) %>%
+#   select(nb_aut) 
+# 
+# freq(is_retracted_nbaut$nb_aut)
+
+## Recodage de balanced_data_ss_na$nb_aut en balanced_data_ss_na$nb_aut_rec
+balanced_data_ss_na$nb_aut_rec <- cut(balanced_data_ss_na$nb_aut,
+                                      include.lowest = TRUE,
+                                      right = FALSE,
+                                      dig.lab = 4,
+                                      breaks = c(1, 2, 5, 9, 17, 53, 100)
 )
 
+## Réordonnancement de balanced_data_ss_na$nb_aut_rec
+balanced_data_ss_na$nb_aut_rec <- balanced_data_ss_na$nb_aut_rec %>%
+  fct_relevel(
+    "[9,17)", "[1,2)", "[2,5)", "[5,9)", "[17,53)", "[53,100]"
+  )
 
-#############################################################
-#############################################################
-#############################################################
-#############################################################
-# rtw
-id_paper_stat_jnal_rtw <- oa_rtw %>%
-  left_join(., stats_jnals, by = "so_id") %>%
-  select(id, so_id, two_yr_mean_citedness, h_index, i10_index) %>%
-  unique()
+## Réordonnancement de balanced_data_ss_na$Gtype2_rec
+balanced_data_ss_na2$Gtype2_rec <- balanced_data_ss_na2$Gtype2_rec %>%
+  fct_relevel(
+    "Man alone", "Men-Women | M first", 
+    "Men-Women | W first", "Men only", "Women only", "Woman alone"
+  )
 
-#oa
-stats_jnals$journal_id <- gsub("https://openalex.org/", "", stats_jnals$so_id)
+# bdd_disc_reg_cbind_pivot2_ss_na$is_mid_team <- ifelse((bdd_disc_reg_cbind_pivot2_ss_na$nb_aut >2 &
+#                                                          bdd_disc_reg_cbind_pivot2_ss_na$nb_aut <10), 1, 0)
 
-id_paper_stat_jnal_oa <- paper_metadat %>%
-  filter(!(journal_id=="NONE")) %>%
-  left_join(., stats_jnals, by = "journal_id") %>%
-  select(id, journal_id, two_yr_mean_citedness, h_index, i10_index) %>%
-  unique()
+# balanced_data_ss_na$is_large_team <- ifelse((balanced_data_ss_na$nb_aut >10 & 
+#                                                balanced_data_ss_na$nb_aut <60), 1, 0)
 
+# Créer des variables indicatrices pour nb_aut_rec
+# dummy_vars <- model.matrix(~ nb_aut_rec - 1, data = balanced_data_ss_na)
+# 
+# # Ajouter les variables indicatrices au dataframe
+# balanced_data_ss_na2 <- cbind(balanced_data_ss_na, dummy_vars)
+# 
+# # Voir les nouvelles colonnes créées
+# head(balanced_data_ss_na)
 
-#############################################################
-#############################################################
-#############################################################
-#############################################################
+balanced_data_ss_na2$is_mid_team <- ifelse((balanced_data_ss_na2$nb_aut >2 &
+                                              balanced_data_ss_na2$nb_aut <11), T, F)
+
+# balanced_data_ss_na2$is_midlarge_team <- ifelse((balanced_data_ss_na2$nb_aut >10 &
+#                                               balanced_data_ss_na2$nb_aut <21), 1, 0)
+
+balanced_data_ss_na2$is_mid_team <- as.factor(balanced_data_ss_na2$is_mid_team)
+
+# Ajouter des labels aux variables dans votre dataframe
+var_label(balanced_data_ss_na2$Gtype2_rec) <- "Gender Type"
+var_label(balanced_data_ss_na2$is_oa) <- "Is Open Access"
+var_label(balanced_data_ss_na2$two_yr_mean_citedness) <- "Log(Journal impact)"
+var_label(balanced_data_ss_na2$nb_aut) <- "Log(Authors number)"
+var_label(balanced_data_ss_na2$is_mid_team) <- "Is Medium-sized team"
+var_label(balanced_data_ss_na2$grants) <- "Is funded"
+var_label(balanced_data_ss_na2$publication_year) <- "Publication year"
+var_label(balanced_data_ss_na2$`Health Sciences`) <- "Health Sc. (ref. life Sc.)"
+var_label(balanced_data_ss_na2$`Social Sciences`) <- "Social Sc. (ref. life Sc.)"
+var_label(balanced_data_ss_na2$`Physical Sciences`) <- "Physical Sc. (ref. life Sc.)"
 
 # Ajuster le modèle sur l'échantillon équilibré
 model_balanced <- glm(is_retracted ~ 
-                      Gtype2_rec +
-                      #is_large_team +
-                      #is_medium_team + 
-                      is_oa + 
-                      #log(1+cited_by_count) +
-                      cited_by_count_rec +
-                      #log(nb_aut) +  
-                      nb_aut_rec +
-                      grants +  
-                      publication_year + 
-                      `Health Sciences` +
-                      `Social Sciences` +
-                      `Physical Sciences`,
+                      Gtype2_rec + # Gender Type
+                      is_oa + # Is Open Access
+                      two_yr_mean_citedness + # 2 years mean journal impact (Log transformed)
+                      log(nb_aut) + # Authors number (Log transformed)
+                      is_mid_team + # Is midle team (between 3 and 10 authors)
+                      grants +  # Is funded
+                      publication_year +  # Publication year
+                      `Health Sciences` + # Health Sciences (ref life sciences)
+                      `Social Sciences` + # Social Sciences (ref life sciences)
+                      `Physical Sciences`, # Physical Sciences (ref life sciences)
                       
-                      family = binomial(logit), data = balanced_data)
+                      family = binomial(logit), 
+                      data = balanced_data_ss_na2
+                      #data = bdd_disc_reg_cbind_pivot2_ss_na
+                      )
 
 summary(model_balanced)
 forest_model(model_balanced)
+
+
+################################
+################################
+
+# Appliquer les labels et générer le graphique
+forest_model(model_balanced, factor_labeller = labels)
+
+
+vif(model_balanced)
+#alias(model_balanced)
+#############################################
+# Créer un dataframe à partir des valeurs VIF
+vif_values <- data.frame(
+  Variable = c("Gtype2_rec", "is_oa", "two_yr_mean_citedness", "log(nb_aut)",
+               "is_mid_team", "grants", "publication_year", 
+               "Health Sciences", "Social Sciences", "Physical Sciences"),
+  VIF = c(3.235532, 1.054941, 1.171898, 3.693510,
+          1.921387, 1.147261, 1.102869, 
+          1.597748, 1.340383, 1.618837)
+)
+
+# Créer le graphique
+ggplot(vif_values, aes(x = reorder(Variable, VIF), y = VIF)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  coord_flip() + # Inverser les axes pour une meilleure lisibilité
+  labs(title = "Variance Inflation Factor (VIF) values by Variable",
+       x = "Variable",
+       y = "VIF") +
+  geom_hline(yintercept = 5, linetype = "dashed", color = "red") + # Ligne pour indiquer le seuil de 5
+  theme_minimal()
+#############################################
+#############################################
+set.seed(123)
+boot_model <- boot::boot(data = balanced_data_ss_na2, statistic = function(data, indices) {
+  model <- glm(is_retracted ~ Gtype2_rec + is_oa + two_yr_mean_citedness + log(nb_aut) + is_mid_team + grants + publication_year + `Health Sciences` + `Social Sciences` + `Physical Sciences`,
+               family = binomial(logit), data = data[indices, ])
+  return(coef(model))
+}, R = 1000)
+boot::boot.ci(boot_model)
+#############################################
+#############################################
+
+
+#############################################
+#############################################
+library(caret)
+set.seed(123)
+train_control <- trainControl(method = "cv", number = 10)
+model_cv <- train(is_retracted ~ ., data = balanced_data_ss_na2, method = "glm", 
+                  family = binomial, trControl = train_control)
+print(model_cv)
+#############################################
+#############################################
+
+
+#############################################
+#############################################
+# Packages
+library(ggplot2)
+library(caret)
+library(car)
+library(boot)
+
+# Créer un sous-ensemble du jeu de données avec les variables utilisées dans le modèle
+selected_vars <- c("is_retracted", "Gtype2_rec", "is_oa", "two_yr_mean_citedness", 
+                   "nb_aut", "is_mid_team", "grants", "publication_year", 
+                   "Health Sciences", "Social Sciences", "Physical Sciences")
+
+# Filtrer le jeu de données
+balanced_data_subset <- balanced_data_ss_na2[selected_vars]
+
+names(balanced_data_subset) <- c("is_retracted", "Gtype2_rec", "is_oa", "two_yr_mean_citedness", 
+                                    "nb_aut", "is_mid_team", "grants", "publication_year", 
+                                    "Health_Sciences", "Social_Sciences", "Physical_Sciences")
+
+balanced_data_subset$nb_aut <- log(balanced_data_subset$nb_aut)
+
+
+# Modifier les niveaux de la variable is_retracted pour avoir des noms valides
+balanced_data_subset$is_retracted <- factor(balanced_data_subset$is_retracted, 
+                                            levels = c("FALSE", "TRUE"), 
+                                            labels = c("Not_Retracted", "Retracted"))
+
+# Vérifier les niveaux des autres variables de type facteur si nécessaire (exemple pour is_oa et grants)
+balanced_data_subset$is_oa <- factor(balanced_data_subset$is_oa, 
+                                     levels = c("FALSE", "TRUE"), 
+                                     labels = c("Not_OA", "OA"))
+
+balanced_data_subset$grants <- factor(balanced_data_subset$grants, 
+                                      levels = c("FALSE", "TRUE"), 
+                                      labels = c("No_Grant", "Grant"))
+
+# Validation croisée avec le sous-ensemble des données
+set.seed(123)
+train_control <- trainControl(method = "cv", number = 10, classProbs = TRUE, summaryFunction = twoClassSummary)
+model_cv <- train(is_retracted ~ ., data = balanced_data_subset, 
+                  method = "glm", family = binomial, trControl = train_control, 
+                  metric = "Accuracy")
+# Extraire les résultats de validation croisée
+cv_results <- model_cv$resample
+
+# Boxplot des erreurs de prédiction
+ggplot(cv_results, aes(x = Resample, y = ROC)) +
+  geom_boxplot() +
+  labs(title = "Boxplot des erreurs de prédiction (Validation croisée)",
+       x = "Répliques",
+       y = "Précision") +
+  theme_minimal()
+# Boxplot 2 des erreurs de prédiction
+ggplot(cv_results) +
+  aes(x = Resample, y = ROC) +
+  geom_col(fill = "#112446") +
+  labs(
+    x = "Replicas",
+    y = "Accuracy",
+    title = "ROC Performance Across 10 Cross-Validation Replicas"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.y = element_text(face = "bold",
+                               size = 15L),
+    axis.text.x = element_text(size = 10L),
+    legend.text = element_text(face = "bold"),
+    legend.title = element_text(face = "bold")
+  )
+###############################################################################
+
+
+
+# Fonction pour estimer les coefficients du modèle
+boot_model <- boot::boot(data = balanced_data_subset, statistic = function(data, indices) {
+  model <- glm(is_retracted ~ Gtype2_rec + is_oa + two_yr_mean_citedness + 
+                 nb_aut + is_mid_team + grants + publication_year + 
+                 Health_Sciences + Social_Sciences + Physical_Sciences,
+               family = binomial(logit), data = data[indices, ])
+  return(coef(model))
+}, R = 10)  # Nombre d'itérations bootstrap
+
+# Récupérer les noms des variables à partir des données
+var_names <- colnames(boot_model[["data"]])[-1]  # On exclut la première colonne is_retracted
+
+# Vérifiez la longueur des coefficients et des intervalles de confiance
+cat("Longueur des coefficients:", length(coefficients), "\n")
+cat("Longueur des intervalles de confiance:", ncol(coef_ci), "\n")
+
+# Extraire les intervalles de confiance sans les rownames
+lower_ci <- coef_ci[1, ]  # 2.5%
+upper_ci <- coef_ci[2, ]  # 97.5%
+
+# Assurez-vous que le nombre de noms de variables correspond à la longueur des coefficients et CI
+if (length(coefficients) == length(lower_ci) && length(coefficients) == length(upper_ci)) {
+  
+  # Créer un DataFrame pour les coefficients et les intervalles de confiance
+  coef_df <- data.frame(
+    #Variable = var_names,  # Noms des variables
+    Coefficient = coefficients,
+    Lower_CI = lower_ci,
+    Upper_CI = upper_ci
+  )
+  
+  # Vérifiez le DataFrame créé
+  print(coef_df)
+  
+  # Ajouter une colonne pour les noms des coefficients (si nécessaire)
+  coef_df$Variable <- rownames(coef_df)
+  
+ 
+#############################################
+  # Obtenez l'AIC
+  model_aic <- AIC(model_balanced)
+  print(paste("AIC:", model_aic))  
+  
+  # Calculer le Pseudo R² de McFadden
+  null_model <- glm(is_retracted ~ 1, family = binomial(logit), data = balanced_data_subset)
+  pseudo_r2 <- 1 - (logLik(model_balanced) / logLik(null_model))
+  print(paste("Pseudo R² (McFadden):", pseudo_r2))
+  
+  # Installez le package pROC si vous ne l'avez pas
+  # install.packages("pROC")
+  
+  library(pROC)
+  
+  # Prédictions sur l'ensemble de données
+  predicted_probs <- predict(model_balanced, type = "response")
+  roc_curve <- roc(balanced_data_ss_na2$is_retracted, predicted_probs)
+  
+  # Tracez la courbe ROC
+  plot(roc_curve, main = "ROC Curve")
+  print(paste("AUC:", auc(roc_curve)))
+  
+
+  # Seuil de classification (généralement 0.5)
+  threshold <- 0.5
+  predicted_classes <- ifelse(predicted_probs > threshold, "Retracted", "Not_Retracted")
+  
+  # Créer une table de confusion
+  confusion_matrix <- table(Predicted = predicted_classes, Actual = balanced_data_subset$is_retracted)
+  
+  # Calculer la précision, la sensibilité et la spécificité
+  accuracy <- sum(diag(confusion_matrix)) / sum(confusion_matrix)
+  sensitivity <- confusion_matrix[2, 2] / sum(confusion_matrix[2, ])
+  specificity <- confusion_matrix[1, 1] / sum(confusion_matrix[1, ])
+  
+  print(paste("Précision:", accuracy))
+  print(paste("Sensibilité:", sensitivity))
+  print(paste("Spécificité:", specificity))
+  
+  
+#############################################
+
+library(gtsummary)
+bdd_disc_reg_cbind_pivot2_ss_na %>% 
+  select(id, Gtype2_rec, bdd) %>%
+  unique() %>%
+  tbl_summary(
+    include = c(Gtype2_rec),
+    by = bdd,
+    sort = list(everything() ~ "frequency")
+  ) %>%
+  add_overall(last = TRUE, col_label = "**Overall** (# {N})")  
+
+
+library(gtsummary)
+balanced_data_ss_na %>% 
+  select(id, Gtype2_rec, bdd) %>%
+  unique() %>%
+  tbl_summary(
+    include = c(Gtype2_rec),
+    by = bdd,
+    sort = list(everything() ~ "frequency")
+  ) %>%
+  add_overall(last = TRUE, col_label = "**Overall** (# {N})")  
+
+
+moy_aut_retra <- balanced_data_ss_na %>%
+  group_by(is_retracted) %>%
+  summarise(moy_aut = mean(nb_aut))
+
+moy_aut_retra2 <- bdd_disc_reg_cbind_pivot2_ss_na %>%
+  group_by(is_retracted) %>%
+  summarise(moy_aut = mean(nb_aut))
+
