@@ -29,11 +29,11 @@ con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port,
 dbListTables(con)
 
 ### Lecture des données ----
-df_gender <- read_excel("~/Documents/Pubpeer Gender/tb_finale_gender.xlsx") ## bdd sur le genre
+df_gender <- read_excel("/Users/maddi/Documents/Documents/Recherche/Pubpeer Gender/tb_finale_gender.xlsx") ## bdd sur le genre
 
-df_retract <- read_excel("/Users/maddi/Documents/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
+df_retract <- read_excel("/Users/maddi/Documents/Documents/Recherche/Pubpeer Gender/df_gender_retract.xlsx") ## bdd sur le genre + bdd retractations (version avril 2023)
 #write.xlsx(df_retract, "/Users/maddi/Documents/Pubpeer Gender/df_retract.xlsx")
-reason_agr <- read_excel("~/Documents/Pubpeer Gender/reasons_retract aggreg.xlsx")
+reason_agr <- read_excel("/Users/maddi/Documents/Documents/Recherche/Pubpeer Gender/reasons_retract aggreg.xlsx")
 
 bdd_pub = read.csv2('/Users/maddi/Documents/Pubpeer project/Donnees/Bases PubPeer/PubPeer_Base publications.csv', sep=";")
 

@@ -1,3 +1,4 @@
+rm(list = ls())
 
 library(tidyverse)
 library(questionr)
@@ -12,11 +13,12 @@ library(readxl)
 
 
 # Données aléatoires OPENALEX
-author_metadat <- read.csv("~/Documents/Pubpeer Gender/Révisions QSS/randomSample/author_metadata.csv")
-paper2author <- read.csv("~/Documents/Pubpeer Gender/Révisions QSS/randomSample/paper2author.csv")
 
-paper_metadat <- read.csv("~/Documents/Pubpeer Gender/Révisions QSS/randomSample/paper_metadata.csv")
-paper2concept <- read.csv("~/Documents/Pubpeer Gender/Révisions QSS/randomSample/paper2concept.csv")
+author_metadat <- read.csv("C:/Users/amaddi/Documents/Recherche/Pubpeer Gender/Révisions QSS/pubpeer gender/author_metadata.csv")
+paper2author <- read.csv("C:/Users/amaddi/Documents/Recherche/Pubpeer Gender/Révisions QSS/pubpeer gender/paper2author.csv")
+
+paper_metadat <- read.csv("C:/Users/amaddi/Documents/Recherche/Pubpeer Gender/Révisions QSS/pubpeer gender/paper_metadata.csv")
+paper2concept <- read.csv("C:/Users/amaddi/Documents/Recherche/Pubpeer Gender/Révisions QSS/pubpeer gender/paper2concept.csv")
 
 # Quelques stats desc pour explorer les données
 
@@ -30,6 +32,63 @@ nb_aut_paper <- paper2author %>%
 part_collab <- (sum(nb_aut_paper$is_collab)/length(nb_aut_paper$paper))*100 # 57,61% avec au moins 2 auteurs
 
 # 906 552 papier écrits par 2 644 463 auteurs
+
+nb_auteurs_papier <- nb_aut_paper %>%
+  select(paper, n) %>%
+  unique()
+
+nb_aut_paper_annee <- nb_auteurs_papier %>%
+  left_join(paper_metadat, by = c("paper" = "id")) 
+
+nb_aut_paper_annee$year <- year(nb_aut_paper_annee$pulicationDate)
+
+nb_aut_paper_annee <- nb_aut_paper_annee %>%
+  select(paper, n, year) %>%
+  mutate(class_n = case_when(
+    n == 1 ~ "mono auteur",
+    n == 2 ~ "deux auteurs",
+    n >= 3 & n<=10 ~ "trois à dix auteurs",
+    n >= 11 ~ "11+"
+  )) %>%
+  select(-n)  # Supprime la variable n
+
+
+
+nb_aut <- nb_aut_paper_annee %>%
+  select(paper, class_n, year) %>%
+  group_by(class_n, year) %>%
+  summarise(nb = n()) %>%
+  filter(year > 2000 & year < 2024) %>%
+  # Calcul de la part
+  group_by(year) %>%
+  mutate(total_year = sum(nb)) %>%
+  mutate(part = (nb / total_year)*100) %>%
+  ungroup()
+
+
+#############
+nb_aut_paper_annee2 <- nb_aut_paper_annee %>%
+  select(paper, n, year) %>%
+  mutate(class_n = case_when(
+    n == 1 ~ "mono auteur",
+    n >= 2 ~ "deux auteurs ou plus"
+  )) %>%
+  select(-n)  # Supprime la variable n
+
+
+
+nb_aut <- nb_aut_paper_annee2 %>%
+  select(paper, class_n, year) %>%
+  group_by(class_n, year) %>%
+  summarise(nb = n()) %>%
+  filter(year > 2000 & year < 2025) %>%
+  # Calcul de la part
+  group_by(year) %>%
+  mutate(total_year = sum(nb)) %>%
+  mutate(part = (nb / total_year)*100) %>%
+  ungroup()
+
+#############
 
 
 # Identifier le genre des auteurs
@@ -410,3 +469,4 @@ if (length(invalid_ids) > 0) {
 # Réessayer de récupérer les métadonnées en utilisant la liste corrigée d'identifiants d'œuvres
 works_from_ids <- oa_fetch(entity = "works", id = ids, verbose = TRUE)
 
+df_oa <- readRDS("C:/Users/amaddi/Documents/Recherche/Pubpeer Gender/Révisions QSS/df_oa.rds")

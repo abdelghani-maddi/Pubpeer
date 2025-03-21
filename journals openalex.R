@@ -11,23 +11,24 @@ library(openxlsx)
 
 
 jours_all <- oa_fetch(
-  entity = "venues",
+  entity = "sources",
   works_count = ">200",
   verbose = TRUE
 )
 
 
 jours_all_inf200 <- oa_fetch(
-  entity = "venues",
+  entity = "sources",
   works_count = "<200",
   verbose = TRUE
-)
+) 
 
 # save.image("mon_espace_de_travail.RData")
 
 
 # Union des deux DataFrames jours_all et jours_all_inf200
 openalex_venues <- rbind(jours_all, jours_all_inf200)
+saveRDS(openalex_venues, "D:/Sherpa/sherpa/openalex_sources.rds")
 
 # filtrer revues uniquement
 journals_openalex <- openalex_venues %>%

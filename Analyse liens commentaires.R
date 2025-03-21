@@ -44,7 +44,11 @@ db <- 'SKEPTISCIENCE'  #provide the name of your db
 host_db <- 'localhost' # server
 db_port <- '5433'  # port DBA
 db_user <- 'postgres' # nom utilisateur  
+<<<<<<< HEAD
 db_password <- '**********'
+=======
+db_password <- '***********'
+>>>>>>> 1f27e55d0ed3da7ed425bf01a8e262f0c95edcdc
 con <- dbConnect(RPostgres::Postgres(), dbname = db, host=host_db, port=db_port, user=db_user, password=db_password) 
 # Test connexion
 dbListTables(con) 
